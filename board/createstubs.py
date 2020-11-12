@@ -11,7 +11,7 @@ from utime import sleep_us
 from ujson import dumps
 
 ENOENT = 2
-stubber_version = '1.3.7'
+stubber_version = '1.3.8'
 # deal with ESP32 firmware specific implementations.
 try:
     from machine import resetWDT #LoBo
@@ -62,8 +62,10 @@ class Stubber():
                         'uerrno', 'uhashlib', 'uheapq', 'uio', 'ujson', 'umqtt/robust', 'umqtt/simple', 'uos', 'upip', 'upip_utarfile', 'urandom',
                         'ure', 'urequests', 'urllib/urequest', 'uselect', 'usocket', 'ussl', 'ustruct', 'utime', 'utimeq', 'uwebsocket', 'uzlib',
                         'websocket', 'websocket_helper', 'writer', 'ymodem', 'zlib', 'pycom', 'crypto',
-                        'pyb', 'stm', 'pycopy',
-                        'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
+                        'pyb', 'stm', 'pycopy']
+                        # todo: block in logic ? There are richer stubs 
+                        # 'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
+                        # 'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
 
         # try to avoid running out of memory with nested mods
         self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
@@ -145,18 +147,14 @@ class Stubber():
         errors = []
         name = None
         self._log.debug('get attributes {} {}'.format(repr(obj), obj))
-        try:
-            for name in dir(obj):
-                try:
-                    val = getattr(obj, name)
-                    # name , value , type
-                    result.append((name, repr(val), repr(type(val)), val))
-                    # self._log.info( result[-1])
-                except AttributeError as e:
-                    errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name, obj, e))
-        except AttributeError as e:
-            errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name, obj, e))
-
+        for name in dir(obj):
+            try:
+                val = getattr(obj, name)
+                # name , value , type
+                result.append((name, repr(val), repr(type(val)), val))
+                # self._log.info( result[-1])
+            except AttributeError as e:
+                errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name, obj, e))
         gc.collect()
         return result, errors
 
@@ -258,16 +256,18 @@ class Stubber():
             self.write_object_stub(fp, new_module, module_name, "")
             self._report.append({"module":module_name, "file": file_name})
 
-        if not module_name in ["os", "sys", "logging", "gc"]:
+        if not module_name in ["os", "sys", "logging", "gc", "createstubs"]:
             #try to unload the module unless we use it
             try:
                 del new_module
             except (OSError, KeyError):#lgtm [py/unreachable-statement]
                 self._log.warning("could not del new_module")
-            try:
-                del sys.modules[module_name]
-            except KeyError:
-                self._log.debug("could not del modules[{}]".format(module_name))
+            for m in sys.modules:
+                if not m in ["os", "sys", "logging", "gc", "createstubs"]: 
+                    try:
+                        del sys.modules[module_name]
+                    except KeyError:
+                        self._log.debug("could not del modules[{}]".format(module_name))
             gc.collect()
 
     def write_object_stub(self, fp, object_expr: object, obj_name: str, indent: str):
@@ -471,8 +471,6 @@ def main():
     # # stubber.add_modules(['bluetooth','GPS'])
     stubber.create_all_stubs()
     stubber.report()
-    f = gc.mem_free() # pylint: disable=no-member
-    used = stubber._start_free-f
-    print("Mem used: {}Kb {:,} b free: {:,}".format(used//1024, used, f).replace(",", "."))
+    logging.info("Mem free:  {:,}".format(gc.mem_free()))
 
 main()

@@ -8,7 +8,7 @@ import uos as os
 from utime import sleep_us
 from ujson import dumps
 ENOENT=2
-stubber_version='1.3.7'
+stubber_version='1.3.8'
 try:
  from machine import resetWDT 
 except ImportError:
@@ -37,7 +37,7 @@ class Stubber():
    pass
   self.problematic=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
   self.excluded=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
-  self.modules=['_thread','ak8963','apa102','apa106','array','binascii','btree','bluetooth','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','port_diag','pycom','pye','random','re','requests','select','socket','ssd1306','ssh','ssl','struct','sys','time','tpcalib','ubinascii','ucollections','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib','pycom','crypto','pyb','stm','pycopy','uasyncio/lock','uasyncio/stream','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs']
+  self.modules=['_thread','ak8963','apa102','apa106','array','binascii','btree','bluetooth','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','port_diag','pycom','pye','random','re','requests','select','socket','ssd1306','ssh','ssl','struct','sys','time','tpcalib','ubinascii','ucollections','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib','pycom','crypto','pyb','stm','pycopy']
   self.include_nested=gc.mem_free()>3200 
  @staticmethod
  def _info():
@@ -91,15 +91,12 @@ class Stubber():
   result=[]
   errors=[]
   name=None
-  try:
-   for name in dir(obj):
-    try:
-     val=getattr(obj,name)
-     result.append((name,repr(val),repr(type(val)),val))
-    except AttributeError as e:
-     errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
-  except AttributeError as e:
-   errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
+  for name in dir(obj):
+   try:
+    val=getattr(obj,name)
+    result.append((name,repr(val),repr(type(val)),val))
+   except AttributeError as e:
+    errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
   gc.collect()
   return result,errors
  def add_modules(self,modules:list):
@@ -163,15 +160,17 @@ class Stubber():
    fp.write(s)
    self.write_object_stub(fp,new_module,module_name,"")
    self._report.append({"module":module_name,"file":file_name})
-  if not module_name in["os","sys","logging","gc"]:
+  if not module_name in["os","sys","logging","gc","createstubs"]:
    try:
     del new_module
    except(OSError,KeyError):
     pass
-   try:
-    del sys.modules[module_name]
-   except KeyError:
-    pass
+   for m in sys.modules:
+    if not m in["os","sys","logging","gc","createstubs"]:
+     try:
+      del sys.modules[module_name]
+     except KeyError:
+      pass
    gc.collect()
  def write_object_stub(self,fp,object_expr:object,obj_name:str,indent:str):
   if object_expr in self.problematic:
@@ -309,6 +308,5 @@ def main():
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
- f=gc.mem_free()
- used=stubber._start_free-f
+ print("Mem free:  {:,}".format(gc.mem_free()))
 main()

@@ -103,15 +103,12 @@ class Stubber():
   result=[]
   errors=[]
   name=None
-  try:
-   for name in dir(obj):
-    try:
-     val=getattr(obj,name)
-     result.append((name,repr(val),repr(type(val)),val))
-    except AttributeError as e:
-     errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
-  except AttributeError as e:
-   errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
+  for name in dir(obj):
+   try:
+    val=getattr(obj,name)
+    result.append((name,repr(val),repr(type(val)),val))
+   except AttributeError as e:
+    errors.append("Couldn't get attribute '{}' from object '{}', Err: {}".format(name,obj,e))
   gc.collect()
   return result,errors
  def add_modules(self,modules:list):
@@ -175,15 +172,17 @@ class Stubber():
    fp.write(s)
    self.write_object_stub(fp,new_module,module_name,"")
    self._report.append({"module":module_name,"file":file_name})
-  if not module_name in["os","sys","logging","gc"]:
+  if not module_name in["os","sys","logging","gc","createstubs"]:
    try:
     del new_module
    except(OSError,KeyError):
     pass
-   try:
-    del sys.modules[module_name]
-   except KeyError:
-    pass
+   for m in sys.modules:
+    if not m in["os","sys","logging","gc","createstubs"]:
+     try:
+      del sys.modules[module_name]
+     except KeyError:
+      pass
    gc.collect()
  def write_object_stub(self,fp,object_expr:object,obj_name:str,indent:str):
   if object_expr in self.problematic:
@@ -328,7 +327,6 @@ def main():
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
- f=gc.mem_free()
- used=stubber._start_free-f
+ print("Mem free:  {:,}".format(gc.mem_free()))
 if __name__=="__main__" or isMicroPython():
  main()

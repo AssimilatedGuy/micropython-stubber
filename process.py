@@ -222,9 +222,9 @@ def minify_script(patches=None, keep_report=True, show_diff=False):
     if keep_report:
         # keep these for reporting purposes
         reports = [
+            ('rprint', 'logging.info('),
             ('rprint', 'self._log.info("Stub module: {:<20}'),
             ('rprint', 'self._log.info("Clean/remove files'),
-            ("rprint", 'self._log.info("Mem used:'),
         ]
         # reports has prio over edits
         edits[0:0] = reports

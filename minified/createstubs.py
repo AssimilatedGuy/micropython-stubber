@@ -313,7 +313,7 @@ def _log_mem(start_free):
  free=gc.mem_free()
  used= start_free-free
  print('start free:{:,}, end: {:,}, used {:,}'.format(start_free,free,used))
- with open('./scratch/memory.csv','a')as file:
+ with open('./memory.csv','a')as file:
   file.write('{},{},{},{}\n'.format(start_free,free,used,sys.platform))
 def main():
  try:

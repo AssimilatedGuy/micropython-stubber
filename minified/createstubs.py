@@ -23,17 +23,15 @@ class Stubber():
    pass
   self._report=[]
   self.info=self._info()
-  if firmware_id:
-   self._fwid=str(firmware_id).lower()
-  else:
-   self._fwid="{family}-{port}-{ver}".format(**self.info).lower()
+  gc.collect()
+  self._fwid=str(firmware_id).lower()or "{family}-{port}-{ver}".format(**self.info).lower()
   self._start_free=gc.mem_free()
   if path:
    if path.endswith('/'):
     path=path[:-1]
   else:
-   path=self.get_root()
-  self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
+   path=get_root()
+  self.path="{0}/stubs/{family}-{port}-{1}".format(path,flat(self.info['ver']),**self.info)
   try:
    self.ensure_folder(path+"/")
   except OSError:
@@ -44,61 +42,61 @@ class Stubber():
   self.include_nested=gc.mem_free()>3200 
  @staticmethod
  def _info():
-  info={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
+  i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
   try:
-   info['release']=".".join([str(i)for i in sys.implementation.version])
-   info['version']=info['release']
-   info['name']=sys.implementation.name
-   info['mpy']=sys.implementation.mpy
+   i['release']=".".join([str(i)for i in sys.implementation.version])
+   i['version']=i['release']
+   i['name']=sys.implementation.name
+   i['mpy']=sys.implementation.mpy
   except AttributeError:
    pass
   if sys.platform not in('unix','win32'):
    try:
     u=os.uname()
-    info['sysname']=u.sysname
-    info['nodename']=u.nodename
-    info['release']=u.release
-    info['machine']=u.machine
+    i['sysname']=u.sysname
+    i['nodename']=u.nodename
+    i['release']=u.release
+    i['machine']=u.machine
     if ' on ' in u.version:
      s=u.version.split('on ')[0]
      try:
-      info['build']=s.split('-')[1]
+      i['build']=s.split('-')[1]
      except IndexError:
       pass
    except(IndexError,AttributeError,TypeError):
     pass
   try:
    from pycopy import const
-   info['family']='pycopy'
+   i['family']='pycopy'
    del const
   except(ImportError,KeyError):
    pass
-  if info['platform']=='esp32_LoBo':
-   info['family']='loboris'
-   info['port']='esp32'
-  elif info['sysname']=='ev3':
-   info['family']='ev3-pybricks'
-   info['release']="1.0.0"
+  if i['platform']=='esp32_LoBo':
+   i['family']='loboris'
+   i['port']='esp32'
+  elif i['sysname']=='ev3':
+   i['family']='ev3-pybricks'
+   i['release']="1.0.0"
    try:
     from pybricks.hubs import EV3Brick
-    info['release']="2.0.0"
+    i['release']="2.0.0"
    except ImportError:
     pass
-  if info['release']:
-   info['ver']='v'+info['release']
-  if info['family']!='loboris':
-   if info['release']>='1.10.0' and info['release'].endswith('.0'):
-    info['ver']=info['release'][:-2]
+  if i['release']:
+   i['ver']='v'+i['release']
+  if i['family']!='loboris':
+   if i['release']>='1.10.0' and i['release'].endswith('.0'):
+    i['ver']=i['release'][:-2]
    else:
-    info['ver']=info['release']
-   if info['build']!='':
-    info['ver']+='-'+info['build']
-  if 'mpy' in info: 
-   sys_mpy=info['mpy']
+    i['ver']=i['release']
+   if i['build']!='':
+    i['ver']+='-'+i['build']
+  if 'mpy' in i: 
+   sys_mpy=i['mpy']
    arch=[None,'x86','x64','armv6','armv6m','armv7m','armv7em','armv7emsp','armv7emdp','xtensa','xtensawin'][sys_mpy>>10]
    if arch:
-    info['arch']=arch
-  return info
+    i['arch']=arch
+  return i
  def get_obj_attributes(self,obj:object):
   result=[]
   errors=[]
@@ -213,13 +211,6 @@ class Stubber():
    del name,rep,typ,obj 
   except(OSError,KeyError):
    pass
- @property
- def flat_fwid(self):
-  s=self._fwid
-  chars=" .()/\\:$"
-  for c in chars:
-   s=s.replace(c,"_")
-  return s
  def clean(self,path:str=None):
   if path is None:
    path=self.path
@@ -279,20 +270,19 @@ class Stubber():
      else:
       raise e
    start=i+1
- @staticmethod
- def get_root()->str:
-  try:
-   r="/flash"
-   _=os.stat(r)
-  except OSError as e:
-   if e.args[0]==ENOENT:
-    try:
-     r=os.getcwd()
-    except:
-     r='.'
-   else:
-    r='/'
-  return r
+def get_root()->str:
+ try:
+  r="/flash"
+  _=os.stat(r)
+ except OSError as e:
+  if e.args[0]==ENOENT:
+   try:
+    r=os.getcwd()
+   except:
+    r='.'
+  else:
+   r='/'
+ return r
 def flat(s):
  chars=" .()/\\:$"
  for c in chars:
@@ -318,6 +308,13 @@ def isMicroPython()->bool:
   return False
  except(NotImplementedError,SyntaxError):
   return True
+def _log_mem(start_free):
+ gc.collect()
+ free=gc.mem_free()
+ used= start_free-free
+ print('start free:{:,}, end: {:,}, used {:,}'.format(start_free,free,used))
+ with open('./scratch/memory.csv','a')as file:
+  file.write('{},{},{},{}\n'.format(start_free,free,used,sys.platform))
 def main():
  try:
   logging.basicConfig(level=logging.INFO)
@@ -327,6 +324,6 @@ def main():
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
- print("Mem free:  {:,}".format(gc.mem_free()))
+ _log_mem(stubber._start_free)
 if __name__=="__main__" or isMicroPython():
  main()

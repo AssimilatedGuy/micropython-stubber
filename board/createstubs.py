@@ -31,22 +31,19 @@ class Stubber():
         self._log = logging.getLogger('stubber')
         self._report = []
         self.info = self._info()
-        if firmware_id:
-            self._fwid = str(firmware_id).lower() 
-        else:
-            self._fwid = "{family}-{port}-{ver}".format(**self.info).lower()
+        gc.collect()
+        self._fwid = str(firmware_id).lower() or "{family}-{port}-{ver}".format(**self.info).lower()
         self._start_free = gc.mem_free()
 
         if path:
             if path.endswith('/'):
                 path = path[:-1]
         else:
-            path = self.get_root()
-        # v = flat(self.info['ver'])
+            path = get_root()
         # self.path = "".join([path,"/stubs/", self.info['family'],"-",self.info['port']])
-        #self.path = "{0}/stubs/{family}-{port}-{1}".format(path, v ,**self.info)
+        self.path = "{0}/stubs/{family}-{port}-{1}".format(path,flat(self.info['ver']) ,**self.info)
         #self.path = "%s/stubs/%s-%s-%s" % (path, self.info['family'], self.info['port'], v)
-        self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
+        #self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
         self._log.debug(self.path)
         try:
             self.ensure_folder(path + "/")
@@ -57,14 +54,12 @@ class Stubber():
         # there is no option to discover modules from upython, need to hardcode
         # below contains combined modules from  Micropython ESP8622, ESP32, Loboris, pycom and ulab
         # modules to stub : 118
-        self.modules = ['_onewire', '_thread', '_uasyncio', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'builtins', 
-'cmath', 'collections', 'crypto',
+        self.modules = ['_onewire', '_thread', '_uasyncio', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'builtins', 'cmath', 'collections', 'crypto',
                         'curl', 'dht', 'display', 'ds18x20', 'errno', 'esp', 'esp32', 'flashbdev', 'framebuf', 'freesans20', 'functools', 'gc', 'gsm', 'hashlib',
                         'heapq', 'inisetup', 'io', 'json', 'lcd160cr', 'lcd160cr_test', 'logging', 'lwip', 'machine', 'math', 'microWebSocket', 'microWebSrv', 'microWebTemplate',
                         'micropython', 'mpu6500', 'mpu9250', 'neopixel', 'network', 'ntptime', 'onewire', 'os', 'pyb', 'pycom', 'pye', 'queue', 'random', 're', 'requests',
                         'select', 'socket', 'ssd1306', 'ssh', 'ssl', 'stm', 'struct', 'sys', 'time', 'tpcalib', 'uarray', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event',
-                        'uasyncio/funcs', 'uasyncio/lock', 'uasyncio/stream', 'ubinascii', 'ubluetooth', 'ucollections', 'ucrypto', 
-'ucryptolib', 'uctypes', 'uerrno',
+                        'uasyncio/funcs', 'uasyncio/lock', 'uasyncio/stream', 'ubinascii', 'ubluetooth', 'ucollections', 'ucrypto', 'ucryptolib', 'uctypes', 'uerrno',
                         'uhashlib', 'uheapq', 'uio', 'ujson', 'ulab', 'ulab/approx', 'ulab/compare', 'ulab/fft', 'ulab/filter', 'ulab/linalg', 'ulab/numerical',
                         'ulab/poly', 'ulab/user', 'ulab/vector', 'umachine', 'umqtt/robust', 'umqtt/simple', 'uos', 'upip', 'upip_utarfile', 'uqueue', 'urandom',
                         'ure', 'urequests', 'urllib/urequest', 'uselect', 'usocket', 'ussl', 'ustruct', 'usys', 'utime', 'utimeq', 'uwebsocket', 'uzlib', 'websocket',
@@ -75,38 +70,38 @@ class Stubber():
     @staticmethod
     def _info():
         "collect base information on this runtime"
-        info = {'name': sys.implementation.name,    # - micropython
-                'release': '0.0.0',                 # mpy semver from sys.implementation or os.uname()release
-                'version': '0.0.0',                 # major.minor.0
-                'build': '',                        # parsed from version
-                'sysname': 'unknown',               # esp32
-                'nodename': 'unknown',              # ! not on all builds
-                'machine': 'unknown',               # ! not on all builds
-                'family': sys.implementation.name,  # fw families, micropython , pycopy , lobo , pycomm
-                'platform': sys.platform,               # port: esp32 / win32 / linux
-                'port': sys.platform,               # port: esp32 / win32 / linux
-                'ver': ''                           # short version
-                }
+        i = {'name': sys.implementation.name,    # - micropython
+             'release': '0.0.0',                 # mpy semver from sys.implementation or os.uname()release
+             'version': '0.0.0',                 # major.minor.0
+             'build': '',                        # parsed from version
+             'sysname': 'unknown',               # esp32
+             'nodename': 'unknown',              # ! not on all builds
+             'machine': 'unknown',               # ! not on all builds
+             'family': sys.implementation.name,  # fw families, micropython , pycopy , lobo , pycomm
+             'platform': sys.platform,               # port: esp32 / win32 / linux
+             'port': sys.platform,               # port: esp32 / win32 / linux
+             'ver': ''                           # short version
+            }
         try:
-            info['release'] = ".".join([str(i) for i in sys.implementation.version])
-            info['version'] = info['release']
-            info['name'] = sys.implementation.name
-            info['mpy'] = sys.implementation.mpy
+            i['release'] = ".".join([str(i) for i in sys.implementation.version])
+            i['version'] = i['release']
+            i['name'] = sys.implementation.name
+            i['mpy'] = sys.implementation.mpy
         except AttributeError:
             pass
 
         if sys.platform not in ('unix', 'win32'):
             try:
                 u = os.uname()
-                info['sysname'] = u.sysname
-                info['nodename'] = u.nodename
-                info['release'] = u.release
-                info['machine'] = u.machine
+                i['sysname'] = u.sysname
+                i['nodename'] = u.nodename
+                i['release'] = u.release
+                i['machine'] = u.machine
                 # parse micropython build info
                 if ' on ' in u.version:
                     s = u.version.split('on ')[0]
                     try:
-                        info['build'] = s.split('-')[1]
+                        i['build'] = s.split('-')[1]
                     except IndexError:
                         pass
             except (IndexError, AttributeError, TypeError):
@@ -114,45 +109,44 @@ class Stubber():
 
         try: # families
             from pycopy import const
-            info['family'] = 'pycopy'
+            i['family'] = 'pycopy'
             del const
         except (ImportError, KeyError):
             pass
-        if info['platform'] == 'esp32_LoBo':
-            info['family'] = 'loboris'
-            info['port'] = 'esp32'
-        elif info['sysname'] == 'ev3':
+        if i['platform'] == 'esp32_LoBo':
+            i['family'] = 'loboris'
+            i['port'] = 'esp32'
+        elif i['sysname'] == 'ev3':
             # ev3 pybricks
-            info['family'] = 'ev3-pybricks'
-            info['release'] = "1.0.0"
+            i['family'] = 'ev3-pybricks'
+            i['release'] = "1.0.0"
             try:
-                # Version 2.0 introduces the EV3Brick() class. 
+                # Version 2.0 introduces the EV3Brick() class.
                 from pybricks.hubs import EV3Brick
-                info['release'] = "2.0.0"
+                i['release'] = "2.0.0"
             except ImportError:
                 pass
 
         # version info
-        if info['release']:
-            info['ver'] = 'v'+info['release']
-        if info['family'] != 'loboris':
-            # todo: sanity check if this makes sense or not
-            if info['release'] >= '1.10.0' and info['release'].endswith('.0'):
+        if i['release']:
+            i['ver'] = 'v'+i['release']
+        if i['family'] != 'loboris':
+            if i['release'] >= '1.10.0' and i['release'].endswith('.0'):
                 #drop the .0 for newer releases
-                info['ver'] = info['release'][:-2]
+                i['ver'] = i['release'][:-2]
             else:
-                info['ver'] = info['release']
+                i['ver'] = i['release']
             # add the build nr
-            if info['build'] != '':
-                info['ver'] += '-'+info['build']
-        if 'mpy' in info:          # mpy on some v1.11+ builds
-            sys_mpy = info['mpy']
+            if i['build'] != '':
+                i['ver'] += '-'+i['build']
+        if 'mpy' in i:          # mpy on some v1.11+ builds
+            sys_mpy = i['mpy']
             arch = [None, 'x86', 'x64', 'armv6', 'armv6m',
                     'armv7m', 'armv7em', 'armv7emsp', 'armv7emdp',
                     'xtensa', 'xtensawin'][sys_mpy >> 10]
             if arch:
-                info['arch'] = arch
-        return info
+                i['arch'] = arch
+        return i
 
     def get_obj_attributes(self, obj: object):
         "extract information of the objects members and attributes"
@@ -338,15 +332,6 @@ class Stubber():
         except (OSError, KeyError):#lgtm [py/unreachable-statement]
             pass
 
-    @property
-    def flat_fwid(self):
-        "Turn _fwid from 'v1.2.3' into '1_2_3' to be used in filename"
-        s = self._fwid
-        # path name restrictions
-        chars = " .()/\\:$"
-        for c in chars:
-            s = s.replace(c, "_")
-        return s
 
     def clean(self, path: str = None):
         "Remove all files from the stub folder"
@@ -425,23 +410,21 @@ class Stubber():
             #next level deep
             start = i+1
 
-
-    @staticmethod
-    def get_root()->str:
-        "Determine the root folder of the device"
-        try:
-            r = "/flash"
-            _ = os.stat(r)
-        except OSError as e:
-            if e.args[0] == ENOENT:
-                try:
-                    r = os.getcwd()
-                except:
-                    # unix port
-                    r = '.'
-            else:
-                r = '/'
-        return r
+def get_root()->str:
+    "Determine the root folder of the device"
+    try:
+        r = "/flash"
+        _ = os.stat(r)
+    except OSError as e:
+        if e.args[0] == ENOENT:
+            try:
+                r = os.getcwd()
+            except:
+                # unix port
+                r = '.'
+        else:
+            r = '/'
+    return r
 
 def flat(s):
     "Turn a fwid from '1.2.3' into '1_2_3' to be used in filename"
@@ -450,7 +433,7 @@ def flat(s):
     for c in chars:
         s = s.replace(c, "_")
     return s
-
+    
 def show_help():
     print("-p, --path   path to store the stubs in, defaults to '.'")
     sys.exit(1)
@@ -480,6 +463,13 @@ def isMicroPython()->bool:
         return False
     except (NotImplementedError, SyntaxError):
         return True
+def _log_mem(start_free):
+    gc.collect()
+    free = gc.mem_free()
+    used =  start_free - free
+    logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free,used))
+    with open('./scratch/memory.csv', 'a') as file:
+        file.write('{},{},{},{}\n'.format(start_free, free,used, sys.platform))
 
 def main():
     print('stubber version :', stubber_version)
@@ -497,7 +487,7 @@ def main():
     # # stubber.add_modules(['bluetooth','GPS'])
     stubber.create_all_stubs()
     stubber.report()
-    logging.info("Mem free:  {:,}".format(gc.mem_free()))
+    _log_mem(stubber._start_free)
 
 if __name__ == "__main__" or isMicroPython():
     main()

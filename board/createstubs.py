@@ -40,10 +40,8 @@ class Stubber():
                 path = path[:-1]
         else:
             path = get_root()
-        # self.path = "".join([path,"/stubs/", self.info['family'],"-",self.info['port']])
         self.path = "{0}/stubs/{family}-{port}-{1}".format(path,flat(self.info['ver']) ,**self.info)
-        #self.path = "%s/stubs/%s-%s-%s" % (path, self.info['family'], self.info['port'], v)
-        #self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
+
         self._log.debug(self.path)
         try:
             self.ensure_folder(path + "/")
@@ -420,7 +418,7 @@ def flat(s):
     for c in chars:
         s = s.replace(c, "_")
     return s
-    
+
 def show_help():
     print("-p, --path   path to store the stubs in, defaults to '.'")
     sys.exit(1)
@@ -443,7 +441,7 @@ def _log_mem(start_free):
     free = gc.mem_free()
     used =  start_free - free
     logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free,used))
-    with open('./scratch/memory.csv', 'a') as file:
+    with open('./memory.csv', 'a') as file:
         file.write('{},{},{},{}\n'.format(start_free, free,used, sys.platform))
 
 def main():

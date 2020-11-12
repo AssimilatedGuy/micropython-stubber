@@ -1,8 +1,6 @@
-"""
-Create stubs for (all) modules on a MicroPython board
-Copyright (c) 2019-2020 Jos Verlinde
-"""
-#pylint: disable= invalid-name, missing-function-docstring, import-outside-toplevel, logging-not-lazy
+# Create stubs for (all) modules on a MicroPython board
+# Copyright (c) 2019-2020 Jos Verlinde
+# pylint: disable= invalid-name, missing-function-docstring, import-outside-toplevel, logging-not-lazy
 import sys
 import gc
 import logging
@@ -22,6 +20,7 @@ except ImportError:
 class Stubber():
     "Generate stubs for modules in firmware"
     def __init__(self, path: str = None, firmware_id: str = None):
+        self._start_free = gc.mem_free()
         try:
             if os.uname().release == '1.13.0' and os.uname().version < 'v1.13-103':
                 raise NotImplementedError("MicroPython 1.13.0 cannot be stubbed")
@@ -31,9 +30,9 @@ class Stubber():
         self._log = logging.getLogger('stubber')
         self._report = []
         self.info = self._info()
+
         gc.collect()
         self._fwid = str(firmware_id).lower() or "{family}-{port}-{ver}".format(**self.info).lower()
-        self._start_free = gc.mem_free()
 
         if path:
             if path.endswith('/'):
@@ -63,7 +62,7 @@ class Stubber():
                         'ure', 'urequests', 'urllib/urequest', 'uselect', 'usocket', 'ussl', 'ustruct', 'usys', 'utime', 'utimeq', 'uwebsocket', 'uzlib', 'websocket',
                         'websocket_helper', 'writer', 'ymodem', 'zlib']
         # try to avoid running out of memory with nested mods
-        self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
+        # self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
 
     @staticmethod
     def _info():
@@ -84,11 +83,10 @@ class Stubber():
             i['release'] = ".".join([str(i) for i in sys.implementation.version])
             i['version'] = i['release']
             i['name'] = sys.implementation.name
-            i['mpy'] = sys.implementation.mpy
+            # i['mpy'] = sys.implementation.mpy    # esp8622 mem constraints
         except AttributeError:
             pass
-
-        if sys.platform not in ('unix', 'win32'):
+        if sys.platform not in ('unix', 'win32', 'esp8266'):
             try:
                 u = os.uname()
                 i['sysname'] = u.sysname
@@ -137,13 +135,14 @@ class Stubber():
             # add the build nr
             if i['build'] != '':
                 i['ver'] += '-'+i['build']
-        if 'mpy' in i:          # mpy on some v1.11+ builds
-            sys_mpy = i['mpy']
-            arch = [None, 'x86', 'x64', 'armv6', 'armv6m',
-                    'armv7m', 'armv7em', 'armv7emsp', 'armv7emdp',
-                    'xtensa', 'xtensawin'][sys_mpy >> 10]
-            if arch:
-                i['arch'] = arch
+        # ESP8622 mem constraints
+        # if 'mpy' in i:          # mpy on some v1.11+ builds
+        #     sys_mpy = i['mpy']
+        #     arch = [None, 'x86', 'x64', 'armv6', 'armv6m',
+        #             'armv7m', 'armv7em', 'armv7emsp', 'armv7emdp',
+        #             'xtensa', 'xtensawin'][sys_mpy >> 10]
+        #     if arch:
+        #         i['arch'] = arch
         return i
 
     def get_obj_attributes(self, obj: object):
@@ -175,8 +174,8 @@ class Stubber():
         gc.collect()
         for module_name in self.modules:
             #re-evaluate
-            if self.include_nested:
-                self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
+            # if self.include_nested:
+            #     self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
 
             if module_name.startswith("_") and module_name != '_thread':
                 self._log.warning("Skip module: {:<20}        : Internal ".format(module_name))
@@ -216,9 +215,9 @@ class Stubber():
             #for nested modules
             self.ensure_folder(file_name)
             module_name = module_name.replace('/', '.')
-            if not self.include_nested:
-                self._log.warning("SKIPPING nested module:{}".format(module_name))
-                return
+            # if not self.include_nested:
+            #     self._log.warning("SKIPPING nested module:{}".format(module_name))
+            #     return
 
         if file_name is None:
             file_name = module_name.replace('.', '_') + ".py"

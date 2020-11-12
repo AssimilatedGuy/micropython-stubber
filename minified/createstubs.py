@@ -1,7 +1,3 @@
-"""
-Create stubs for (all) modules on a MicroPython board
-Copyright (c) 2019-2020 Jos Verlinde
-"""
 import sys
 import gc
 import uos as os
@@ -16,6 +12,7 @@ except ImportError:
   pass
 class Stubber():
  def __init__(self,path:str=None,firmware_id:str=None):
+  self._start_free=gc.mem_free()
   try:
    if os.uname().release=='1.13.0' and os.uname().version<'v1.13-103':
     raise NotImplementedError("MicroPython 1.13.0 cannot be stubbed")
@@ -25,7 +22,6 @@ class Stubber():
   self.info=self._info()
   gc.collect()
   self._fwid=str(firmware_id).lower()or "{family}-{port}-{ver}".format(**self.info).lower()
-  self._start_free=gc.mem_free()
   if path:
    if path.endswith('/'):
     path=path[:-1]
@@ -39,7 +35,6 @@ class Stubber():
   self.problematic=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
   self.excluded=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
   self.modules=['_onewire','_thread','_uasyncio','ak8963','apa102','apa106','array','binascii','btree','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','lcd160cr','lcd160cr_test','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','pyb','pycom','pye','queue','random','re','requests','select','socket','ssd1306','ssh','ssl','stm','struct','sys','time','tpcalib','uarray','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs','uasyncio/lock','uasyncio/stream','ubinascii','ubluetooth','ucollections','ucrypto','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','ulab','ulab/approx','ulab/compare','ulab/fft','ulab/filter','ulab/linalg','ulab/numerical','ulab/poly','ulab/user','ulab/vector','umachine','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','uqueue','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','usys','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib']
-  self.include_nested=gc.mem_free()>3200 
  @staticmethod
  def _info():
   i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
@@ -47,10 +42,9 @@ class Stubber():
    i['release']=".".join([str(i)for i in sys.implementation.version])
    i['version']=i['release']
    i['name']=sys.implementation.name
-   i['mpy']=sys.implementation.mpy
   except AttributeError:
    pass
-  if sys.platform not in('unix','win32'):
+  if sys.platform not in('unix','win32','esp8266'):
    try:
     u=os.uname()
     i['sysname']=u.sysname
@@ -91,11 +85,6 @@ class Stubber():
     i['ver']=i['release']
    if i['build']!='':
     i['ver']+='-'+i['build']
-  if 'mpy' in i: 
-   sys_mpy=i['mpy']
-   arch=[None,'x86','x64','armv6','armv6m','armv7m','armv7em','armv7emsp','armv7emdp','xtensa','xtensawin'][sys_mpy>>10]
-   if arch:
-    i['arch']=arch
   return i
  def get_obj_attributes(self,obj:object):
   result=[]
@@ -115,8 +104,6 @@ class Stubber():
   self.modules=[m for m in self.modules if '/' in m]+[m for m in self.modules if '/' not in m]
   gc.collect()
   for module_name in self.modules:
-   if self.include_nested:
-    self.include_nested=gc.mem_free()>3200 
    if module_name.startswith("_")and module_name!='_thread':
     continue
    if module_name in self.problematic:
@@ -140,8 +127,6 @@ class Stubber():
   if '/' in module_name:
    self.ensure_folder(file_name)
    module_name=module_name.replace('/','.')
-   if not self.include_nested:
-    return
   if file_name is None:
    file_name=module_name.replace('.','_')+".py"
   failed=False

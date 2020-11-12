@@ -30,16 +30,14 @@ class Stubber():
     path=path[:-1]
   else:
    path=self.get_root()
-  self.path="{}/stubs/{}".format(path,self.flat_fwid).replace('//','/')
+  self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
   try:
    self.ensure_folder(path+"/")
   except OSError:
    pass
   self.problematic=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
   self.excluded=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
-  self.modules=['_thread','ak8963','apa102','apa106','array','binascii','btree','bluetooth','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','port_diag','pycom','pye','random','re','requests','select','socket','ssd1306','ssh','ssl','struct','sys','time','tpcalib','ubinascii','ucollections','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib','pycom','crypto']
-  self.modules+=['pyb','stm','pycopy']
-  self.modules+=['uasyncio/lock','uasyncio/stream','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs']
+  self.modules=['_thread','ak8963','apa102','apa106','array','binascii','btree','bluetooth','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','port_diag','pycom','pye','random','re','requests','select','socket','ssd1306','ssh','ssl','struct','sys','time','tpcalib','ubinascii','ucollections','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib','pycom','crypto','pyb','stm','pycopy','uasyncio/lock','uasyncio/stream','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs']
   self.include_nested=gc.mem_free()>3200 
  @staticmethod
  def _info():
@@ -248,7 +246,6 @@ class Stubber():
       f.write(',')
      f.write(dumps(n))
     f.write(']}')
-   used=self._start_free-gc.mem_free()
   except OSError:
    pass
  def ensure_folder(self,path:str):
@@ -285,6 +282,11 @@ class Stubber():
    else:
     r='/'
   return r
+def flat(s):
+ chars=" .()/\\:$"
+ for c in chars:
+  s=s.replace(c,"_")
+ return s
 def show_help():
  sys.exit(1)
 def read_path()->str:
@@ -292,7 +294,7 @@ def read_path()->str:
  if len(sys.argv)==3:
   cmd=(sys.argv[1]).lower()
   if cmd in('--path','-p'):
-   path =sys.argv[2]
+   path=sys.argv[2]
   else:
    show_help()
  elif len(sys.argv)>=2:
@@ -307,4 +309,6 @@ def main():
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
+ f=gc.mem_free()
+ used=stubber._start_free-f
 main()

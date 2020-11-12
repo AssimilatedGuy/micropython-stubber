@@ -9,6 +9,8 @@ import sys
 from optparse import Values
 from pathlib import Path
 
+from pyminifier.minification import reduce_operators
+
 # Pyminifier Dep
 token_utils = None
 minification = None
@@ -218,12 +220,14 @@ def minify_script(patches=None, keep_report=True, show_diff=False):
         ("comment", "self._log.error"),
     ]
     if keep_report:
-        report = ('rprint', ('self._log.info("Stub module: {:<20} to file:'
-                             ' {:<55} mem:{:>5}".'
-                             'format(module_name, file_name, m1))'))
-        clean = ('rprint', 'self._log.info("Clean/remove files in folder: {}".format(path))')
-        edits.insert(0, report)
-        edits.insert(1, clean)
+        # keep these for reporting purposes
+        reports = [
+            ('rprint', 'self._log.info("Stub module: {:<20}'),
+            ('rprint', 'self._log.info("Clean/remove files'),
+            ("rprint", 'self._log.info("Mem used:'),
+        ]
+        # reports has prio over edits
+        edits[0:0] = reports
 
     minopts = Values({'tabs': False})
     with SCRIPT.open('r') as f:

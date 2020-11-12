@@ -42,8 +42,11 @@ class Stubber():
                 path = path[:-1]
         else:
             path = self.get_root()
-
-        self.path = "{}/stubs/{}".format(path, self.flat_fwid).replace('//', '/')
+        # v = flat(self.info['ver'])
+        # self.path = "".join([path,"/stubs/", self.info['family'],"-",self.info['port']])
+        #self.path = "{0}/stubs/{family}-{port}-{1}".format(path, v ,**self.info)
+        #self.path = "%s/stubs/%s-%s-%s" % (path, self.info['family'], self.info['port'], v)
+        self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
         self._log.debug(self.path)
         try:
             self.ensure_folder(path + "/")
@@ -133,7 +136,8 @@ class Stubber():
         if info['release']:
             info['ver'] = 'v'+info['release']
         if info['family'] != 'loboris':
-            if info['release'] and info['release'] >= '1.10.0' and info['release'].endswith('.0'):
+            # todo: sanity check if this makes sense or not
+            if info['release'] >= '1.10.0' and info['release'].endswith('.0'):
                 #drop the .0 for newer releases
                 info['ver'] = info['release'][:-2]
             else:
@@ -393,8 +397,6 @@ class Stubber():
                         f.write(',')
                     f.write(dumps(n))
                 f.write(']}')
-            used = self._start_free - gc.mem_free() # pylint: disable=no-member
-            self._log.info("Memory used: {0} Kb".format( used//1024))
         except OSError:
             self._log.error("Failed to create the report.")
 
@@ -443,6 +445,14 @@ class Stubber():
                 r = '/'
         return r
 
+def flat(s):
+    "Turn a fwid from '1.2.3' into '1_2_3' to be used in filename"
+    # path name restrictions
+    chars = " .()/\\:$"
+    for c in chars:
+        s = s.replace(c, "_")
+    return s
+
 def show_help():
     print("-p, --path   path to store the stubs in, defaults to '.'")
     sys.exit(1)
@@ -453,7 +463,7 @@ def read_path()->str:
     if len(sys.argv) == 3:
         cmd = (sys.argv[1]).lower()
         if cmd in ('--path', '-p'):
-            path  = sys.argv[2]
+            path = sys.argv[2]
         else:
             show_help()
     elif len(sys.argv) >= 2:
@@ -480,6 +490,8 @@ def main():
     except NameError:
         pass
     stubber = Stubber(path=read_path())
+
+    print(stubber.info)
     # Option: Specify a firmware name & version
     # stubber = Stubber(firmware_id='HoverBot v1.2.1')
     stubber.clean()
@@ -487,6 +499,9 @@ def main():
     # # stubber.add_modules(['bluetooth','GPS'])
     stubber.create_all_stubs()
     stubber.report()
+    f = gc.mem_free() # pylint: disable=no-member
+    used = stubber._start_free-f
+    print("Mem used: {}Kb {:,} b free: {:,}".format(used//1024, used, f).replace(",", "."))
 
 if __name__ == "__main__" or isMicroPython():
     main()

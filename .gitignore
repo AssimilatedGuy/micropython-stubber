@@ -13,7 +13,7 @@ scratch/*
 # stubs
 board/stubs
 minified/stubs
-all_stubs
+stubs
 all-stubs
 stubs
 
@@ -26,5 +26,4 @@ coverage_report
 # OS specific stuff
 desktop.ini
 .pytest_cache/*
-
 

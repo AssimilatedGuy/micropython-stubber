@@ -33,7 +33,7 @@ class Stubber():
     path=path[:-1]
   else:
    path=self.get_root()
-  self.path="{}/stubs/{}".format(path,self.flat_fwid).replace('//','/')
+  self.path="{}/stubs/{}".format(path,'fixme_path').replace('//','/')
   try:
    self.ensure_folder(path+"/")
   except OSError:
@@ -87,7 +87,7 @@ class Stubber():
   if info['release']:
    info['ver']='v'+info['release']
   if info['family']!='loboris':
-   if info['release']and info['release']>='1.10.0' and info['release'].endswith('.0'):
+   if info['release']>='1.10.0' and info['release'].endswith('.0'):
     info['ver']=info['release'][:-2]
    else:
     info['ver']=info['release']
@@ -258,7 +258,6 @@ class Stubber():
       f.write(',')
      f.write(dumps(n))
     f.write(']}')
-   used=self._start_free-gc.mem_free()
   except OSError:
    pass
  def ensure_folder(self,path:str):
@@ -295,6 +294,11 @@ class Stubber():
    else:
     r='/'
   return r
+def flat(s):
+ chars=" .()/\\:$"
+ for c in chars:
+  s=s.replace(c,"_")
+ return s
 def show_help():
  sys.exit(1)
 def read_path()->str:
@@ -302,7 +306,7 @@ def read_path()->str:
  if len(sys.argv)==3:
   cmd=(sys.argv[1]).lower()
   if cmd in('--path','-p'):
-   path =sys.argv[2]
+   path=sys.argv[2]
   else:
    show_help()
  elif len(sys.argv)>=2:
@@ -324,5 +328,7 @@ def main():
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
+ f=gc.mem_free()
+ used=stubber._start_free-f
 if __name__=="__main__" or isMicroPython():
  main()

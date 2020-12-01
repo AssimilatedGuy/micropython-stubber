@@ -1,10 +1,14 @@
+"""
+Create stubs for (all) modules on a MicroPython board
+Copyright (c) 2019-2020 Jos Verlinde
+"""
 import sys
 import gc
 import uos as os
 from utime import sleep_us
 from ujson import dumps
 ENOENT=2
-stubber_version='1.3.9'
+stbr_v ='1.3.9'
 try:
  from machine import resetWDT 
 except ImportError:
@@ -12,7 +16,7 @@ except ImportError:
   pass
 class Stubber():
  def __init__(self,path:str=None,firmware_id:str=None):
-  self._start_free=gc.mem_free()
+  self.init_mem=gc.mem_free()
   try:
    if os.uname().release=='1.13.0' and os.uname().version<'v1.13-103':
     raise NotImplementedError("MicroPython 1.13.0 cannot be stubbed")
@@ -22,6 +26,8 @@ class Stubber():
   self.info=self._info()
   gc.collect()
   self._fwid=str(firmware_id).lower()or "{family}-{port}-{ver}".format(**self.info).lower()
+  if not path:
+   path=get_param()
   if path:
    if path.endswith('/'):
     path=path[:-1]
@@ -32,9 +38,9 @@ class Stubber():
    self.ensure_folder(path+"/")
   except OSError:
    pass
-  self.problematic=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
-  self.excluded=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
-  self.modules=['_onewire','_thread','_uasyncio','ak8963','apa102','apa106','array','binascii','btree','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','lcd160cr','lcd160cr_test','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','pyb','pycom','pye','queue','random','re','requests','select','socket','ssd1306','ssh','ssl','stm','struct','sys','time','tpcalib','uarray','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs','uasyncio/lock','uasyncio/stream','ubinascii','ubluetooth','ucollections','ucrypto','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','ulab','ulab/approx','ulab/compare','ulab/fft','ulab/filter','ulab/linalg','ulab/numerical','ulab/poly','ulab/user','ulab/vector','umachine','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','uqueue','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','usys','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib']
+  self.prblm=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
+  self.excl=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
+  self.mods=['_onewire','_thread','_uasyncio','ak8963','apa102','apa106','array','binascii','btree','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','lcd160cr','lcd160cr_test','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','pyb','pycom','pye','queue','random','re','requests','select','socket','ssd1306','ssh','ssl','stm','struct','sys','time','tpcalib','uarray','uasyncio/__init__','uasyncio/core','uasyncio/event','uasyncio/funcs','uasyncio/lock','uasyncio/stream','ubinascii','ubluetooth','ucollections','ucrypto','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','ulab','ulab/approx','ulab/compare','ulab/fft','ulab/filter','ulab/linalg','ulab/numerical','ulab/poly','ulab/user','ulab/vector','umachine','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','uqueue','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','usys','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib']
  @staticmethod
  def _info():
   i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
@@ -99,76 +105,76 @@ class Stubber():
   gc.collect()
   return result,errors
  def add_modules(self,modules:list):
-  self.modules=sorted(set(self.modules)|set(modules))
+  self.mods=sorted(set(self.mods)|set(modules))
  def create_all_stubs(self):
-  self.modules=[m for m in self.modules if '/' in m]+[m for m in self.modules if '/' not in m]
+  self.mods=[m for m in self.mods if '/' in m]+[m for m in self.mods if '/' not in m]
   gc.collect()
-  for module_name in self.modules:
-   if module_name.startswith("_")and module_name!='_thread':
+  for mod_nm in self.mods:
+   if mod_nm.startswith("_")and mod_nm!='_thread':
     continue
-   if module_name in self.problematic:
+   if mod_nm in self.prblm:
     continue
-   if module_name in self.excluded:
+   if mod_nm in self.excl:
     continue
-   file_name="{}/{}.py".format(self.path,module_name.replace(".","/"))
+   file_name="{}/{}.py".format(self.path,mod_nm.replace(".","/"))
    gc.collect()
    m1=gc.mem_free()
-   print("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(module_name,file_name,m1))
+   print("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm,file_name,m1))
    try:
-    self.create_module_stub(module_name,file_name)
+    self.create_module_stub(mod_nm,file_name)
    except OSError:
     pass
    gc.collect()
- def create_module_stub(self,module_name:str,file_name:str=None):
-  if module_name.startswith("_")and module_name!='_thread':
+ def create_module_stub(self,mod_nm:str,file_name:str=None):
+  if mod_nm.startswith("_")and mod_nm!='_thread':
    return
-  if module_name in self.problematic:
+  if mod_nm in self.prblm:
    return
-  if '/' in module_name:
+  if '/' in mod_nm:
    self.ensure_folder(file_name)
-   module_name=module_name.replace('/','.')
+   mod_nm=mod_nm.replace('/','.')
   if file_name is None:
-   file_name=module_name.replace('.','_')+".py"
+   file_name=mod_nm.replace('.','_')+".py"
   failed=False
-  new_module=None
+  new_mod=None
   try:
-   new_module=__import__(module_name,None,None,('*'))
+   new_mod=__import__(mod_nm,None,None,('*'))
   except ImportError:
    failed=True
-   if not '.' in module_name:
+   if not '.' in mod_nm:
     return
-  if failed and '.' in module_name:
-   levels=module_name.split('.')
+  if failed and '.' in mod_nm:
+   levels=mod_nm.split('.')
    for n in range(1,len(levels)):
-    parent_name=".".join(levels[0:n])
+    par_nm=".".join(levels[0:n])
     try:
-     parent=__import__(parent_name)
+     parent=__import__(par_nm)
      del parent
     except(ImportError,KeyError):
      pass
    try:
-    new_module=__import__(module_name,None,None,('*'))
+    new_mod=__import__(mod_nm,None,None,('*'))
    except ImportError:
     return
   with open(file_name,"w")as fp:
-   s="\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(module_name,self._fwid,self.info,stubber_version)
+   s="\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(mod_nm,self._fwid,self.info,stbr_v)
    fp.write(s)
-   self.write_object_stub(fp,new_module,module_name,"")
-   self._report.append({"module":module_name,"file":file_name})
-  if not module_name in["os","sys","logging","gc","createstubs"]:
+   self.write_object_stub(fp,new_mod,mod_nm,"")
+   self._report.append({"module":mod_nm,"file":file_name})
+  if not mod_nm in["os","sys","logging","gc","createstubs"]:
    try:
-    del new_module
+    del new_mod
    except(OSError,KeyError):
     pass
    for m in sys.modules:
     if not m in["os","sys","logging","gc","createstubs"]:
      try:
-      del sys.modules[module_name]
+      del sys.modules[mod_nm]
      except KeyError:
       pass
    gc.collect()
  def write_object_stub(self,fp,object_expr:object,obj_name:str,indent:str):
-  if object_expr in self.problematic:
+  if object_expr in self.prblm:
    return
   items,errors=self.get_obj_attributes(object_expr)
   for name,rep,typ,obj in sorted(items,key=lambda x:x[0]):
@@ -222,7 +228,7 @@ class Stubber():
     f.write('{')
     f.write(dumps({'firmware':self.info})[1:-1])
     f.write(',')
-    f.write(dumps({'stubber':{'version':stubber_version}})[1:-1])
+    f.write(dumps({'stubber':{'version':stbr_v}})[1:-1])
     f.write(',')
     f.write('"modules" :[')
     start=True
@@ -275,7 +281,7 @@ def flat(s):
  return s
 def show_help():
  sys.exit(1)
-def read_path()->str:
+def get_param()->str:
  path=None
  if len(sys.argv)==3:
   cmd=(sys.argv[1]).lower()
@@ -286,7 +292,7 @@ def read_path()->str:
  elif len(sys.argv)>=2:
   show_help()
  return path
-def isMicroPython()->bool:
+def uPy()->bool:
  try:
   a=eval("1and 0")
   b=bytes("abc",encoding="utf8")
@@ -305,10 +311,10 @@ def main():
   logging.basicConfig(level=logging.INFO)
  except NameError:
   pass
- stubber=Stubber(path=read_path())
+ stubber=Stubber()
  stubber.clean()
  stubber.create_all_stubs()
  stubber.report()
- _log_mem(stubber._start_free)
-if __name__=="__main__" or isMicroPython():
+ _log_mem(stubber.init_mem)
+if __name__=="__main__" or uPy():
  main()

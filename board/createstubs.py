@@ -1,5 +1,7 @@
-# Create stubs for (all) modules on a MicroPython board
-# Copyright (c) 2019-2020 Jos Verlinde
+"""
+Create stubs for (all) modules on a MicroPython board
+Copyright (c) 2019-2020 Jos Verlinde
+"""
 # pylint: disable= invalid-name, missing-function-docstring, import-outside-toplevel, logging-not-lazy
 import sys
 import gc
@@ -9,7 +11,7 @@ from utime import sleep_us
 from ujson import dumps
 
 ENOENT = 2
-stubber_version = '1.3.8'
+stbr_v = '1.3.8'
 
 # deal with ESP32 firmware specific implementations.
 try:
@@ -21,7 +23,7 @@ except ImportError:
 class Stubber():
     "Generate stubs for modules in firmware"
     def __init__(self, path: str = None, firmware_id: str = None):
-        self._start_free = gc.mem_free()
+        self.init_mem = gc.mem_free()
         try:
             if os.uname().release == '1.13.0' and os.uname().version < 'v1.13-103':
                 raise NotImplementedError("MicroPyton 1.13.0 cannot be stubbed")
@@ -35,23 +37,26 @@ class Stubber():
         gc.collect()
         self._fwid = str(firmware_id).lower() or "{family}-{port}-{ver}".format(**self.info).lower()
 
+        if not path:
+            path = get_param()
+
         if path:
             if path.endswith('/'):
                 path = path[:-1]
         else:
             path = get_root()
-        self.path = "{0}/stubs/{family}-{port}-{1}".format(path,flat(self.info['ver']) ,**self.info)
+        self.path = "{0}/stubs/{family}-{port}-{1}".format(path, flat(self.info['ver']), **self.info)
 
         self._log.debug(self.path)
         try:
             self.ensure_folder(path + "/")
         except OSError:
             self._log.error("error creating stub folder {}".format(path))
-        self.problematic = ["upysh", "webrepl_setup", "http_client", "http_client_ssl", "http_server", "http_server_ssl"]
-        self.excluded = ["webrepl", "_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
+        self.prblm = ["upysh", "webrepl_setup", "http_client", "http_client_ssl", "http_server", "http_server_ssl"]
+        self.excl = ["webrepl", "_webrepl", "port_diag", "example_sub_led.py", "example_pub_button.py"]
         # there is no option to discover modules from upython, need to hardcode
         # below contains combined modules from  Micropython ESP8622, ESP32, Loboris and pycom
-        self.modules = ['_thread', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'bluetooth', 'builtins', 'cmath', 'collections',
+        self.mods = ['_thread', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'bluetooth', 'builtins', 'cmath', 'collections',
                         'crypto', 'curl', 'dht', 'display', 'ds18x20', 'errno', 'esp', 'esp32', 'flashbdev', 'framebuf', 'freesans20',
                         'functools', 'gc', 'gsm', 'hashlib', 'heapq', 'inisetup', 'io', 'json', 'logging', 'lwip', 'machine', 'math',
                         'microWebSocket', 'microWebSrv', 'microWebTemplate', 'micropython', 'mpu6500', 'mpu9250', 'neopixel', 'network',
@@ -63,10 +68,6 @@ class Stubber():
                         'pyb', 'stm', 'pycopy']
                         # todo: block in logic ? There are richer stubs 
                         # 'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
-                        # 'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
-
-        # try to avoid running out of memory with nested mods
-        # self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
 
     @staticmethod
     def _info():
@@ -123,7 +124,7 @@ class Stubber():
             # add the build nr
             if i['build'] != '':
                 i['ver'] += '-'+i['build']
-        # ESP8622 mem constraints
+        # removed due to ESP8622 mem constraints
         # if 'mpy' in i:          # mpy on some v1.11+ builds
         #     sys_mpy = i['mpy']
         #     arch = [None, 'x86', 'x64', 'armv6', 'armv6m',
@@ -152,119 +153,112 @@ class Stubber():
 
     def add_modules(self, modules: list):
         "Add additional modules to be exported"
-        self.modules = sorted(set(self.modules) | set(modules))
+        self.mods = sorted(set(self.mods) | set(modules))
 
     def create_all_stubs(self):
         "Create stubs for all configured modules"
-        self._log.info("Start micropython-stubber v{} on {}".format(stubber_version, self._fwid))
+        self._log.info("Start micropython-stubber v{} on {}".format(stbr_v, self._fwid))
         # start with the (more complex) modules with a / first to reduce memory problems
-        self.modules = [m for m in self.modules if '/' in m] + [m for m in self.modules if '/' not in m]
+        self.mods = [m for m in self.mods if '/' in m] + [m for m in self.mods if '/' not in m]
         gc.collect()
-        for module_name in self.modules:
-            #re-evaluate
-            # if self.include_nested:
-            #     self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
-
-            if module_name.startswith("_") and module_name != '_thread':
-                self._log.warning("Skip module: {:<20}        : Internal ".format(module_name))
+        for mod_nm in self.mods:
+            if mod_nm.startswith("_") and mod_nm != '_thread':
+                self._log.warning("Skip module: {:<20}        : Internal ".format(mod_nm))
                 continue
-            if module_name in self.problematic:
-                self._log.warning("Skip module: {:<20}        : Known problematic".format(module_name))
+            if mod_nm in self.prblm:
+                self._log.warning("Skip module: {:<20}        : Known problematic".format(mod_nm))
                 continue
-            if module_name in self.excluded:
-                self._log.warning("Skip module: {:<20}        : Excluded".format(module_name))
+            if mod_nm in self.excl:
+                self._log.warning("Skip module: {:<20}        : Excluded".format(mod_nm))
                 continue
 
             file_name = "{}/{}.py".format(
                 self.path,
-                module_name.replace(".", "/")
+                mod_nm.replace(".", "/")
             )
             gc.collect()
             m1 = gc.mem_free() # pylint: disable=no-member
-            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(module_name, file_name, m1))
+            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm, file_name, m1))
             try:
-                self.create_module_stub(module_name, file_name)
+                self.create_module_stub(mod_nm, file_name)
             except OSError:
                 pass
             gc.collect()
             self._log.debug("Memory     : {:>20} {:>6X}".format(m1, m1-gc.mem_free())) # pylint: disable=no-member
         self._log.info('Finally done')
 
-    def create_module_stub(self, module_name: str, file_name: str = None):
+    def create_module_stub(self, mod_nm: str, file_name: str = None):
         "Create a Stub of a single python module"
-        if module_name.startswith("_") and module_name != '_thread':
-            self._log.warning("SKIPPING internal module:{}".format(module_name))
+        if mod_nm.startswith("_") and mod_nm != '_thread':
+            self._log.warning("SKIPPING internal module:{}".format(mod_nm))
             return
 
-        if module_name in self.problematic:
-            self._log.warning("SKIPPING problematic module:{}".format(module_name))
+        if mod_nm in self.prblm:
+            self._log.warning("SKIPPING problematic module:{}".format(mod_nm))
             return
-        if '/' in module_name:
+        if '/' in mod_nm:
             #for nested modules
             self.ensure_folder(file_name)
-            module_name = module_name.replace('/', '.')
-            # if not self.include_nested:
-            #     self._log.warning("SKIPPING nested module:{}".format(module_name))
-            #     return
+            mod_nm = mod_nm.replace('/', '.')
 
         if file_name is None:
-            file_name = module_name.replace('.', '_') + ".py"
+            file_name = mod_nm.replace('.', '_') + ".py"
 
-        #import the module (as new_module) to examine it
+        #import the module (as new_mod) to examine it
         failed = False
-        new_module = None
+        new_mod = None
         try:
-            new_module = __import__(module_name, None, None, ('*'))
+            new_mod = __import__(mod_nm, None, None, ('*'))
         except ImportError:
             failed = True
-            self._log.warning("Skip module: {:<20}        : Failed to import".format(module_name))
-            if not '.' in module_name:
+            self._log.warning("Skip module: {:<20}        : Failed to import".format(mod_nm))
+            if not '.' in mod_nm:
                 return
 
         #re-try import after importing parents
-        if failed and '.' in module_name:
+        if failed and '.' in mod_nm:
             self._log.debug("re-try import with parents")
-            levels = module_name.split('.')
+            levels = mod_nm.split('.')
             for n in range(1, len(levels)):
-                parent_name = ".".join(levels[0:n])
+                par_nm = ".".join(levels[0:n])
                 try:
-                    parent = __import__(parent_name)
+                    parent = __import__(par_nm)
                     del parent
                 except (ImportError, KeyError):
                     pass
             try:
-                new_module = __import__(module_name, None, None, ('*'))
-                self._log.debug("OK , imported module: {} ".format(module_name))
+                new_mod = __import__(mod_nm, None, None, ('*'))
+                self._log.debug("OK , imported module: {} ".format(mod_nm))
             except ImportError: # now bail out
-                self._log.debug("Failed to import module: {}".format(module_name))
+                self._log.debug("Failed to import module: {}".format(mod_nm))
                 return
 
         # Start a new file
         with open(file_name, "w") as fp:
             # todo: improve header
             s = "\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(
-                module_name, self._fwid, self.info, stubber_version)
+                mod_nm, self._fwid, self.info, stbr_v)
             fp.write(s)
-            self.write_object_stub(fp, new_module, module_name, "")
-            self._report.append({"module":module_name, "file": file_name})
+            self.write_object_stub(fp, new_mod, mod_nm, "")
+            self._report.append({"module":mod_nm, "file": file_name})
 
-        if not module_name in ["os", "sys", "logging", "gc", "createstubs"]:
+        if not mod_nm in ["os", "sys", "logging", "gc", "createstubs"]:
             #try to unload the module unless we use it
             try:
-                del new_module
+                del new_mod
             except (OSError, KeyError):#lgtm [py/unreachable-statement]
-                self._log.warning("could not del new_module")
+                self._log.warning("could not del new_mod")
             for m in sys.modules:
                 if not m in ["os", "sys", "logging", "gc", "createstubs"]: 
                     try:
-                        del sys.modules[module_name]
+                        del sys.modules[mod_nm]
                     except KeyError:
-                        self._log.debug("could not del modules[{}]".format(module_name))
+                        self._log.debug("could not del modules[{}]".format(mod_nm))
             gc.collect()
 
     def write_object_stub(self, fp, object_expr: object, obj_name: str, indent: str):
         "Write a module/object stub to an open file. Can be called recursive."
-        if object_expr in self.problematic:
+        if object_expr in self.prblm:
             self._log.warning("SKIPPING problematic module:{}".format(object_expr))
             return
 
@@ -354,7 +348,7 @@ class Stubber():
                 f.write('{')
                 f.write(dumps({'firmware': self.info})[1:-1])
                 f.write(',')
-                f.write(dumps({'stubber':{'version': stubber_version}})[1:-1])
+                f.write(dumps({'stubber':{'version': stbr_v}})[1:-1])
                 f.write(',')
                 f.write('"modules" :[')
                 start = True
@@ -423,7 +417,7 @@ def show_help():
     print("-p, --path   path to store the stubs in, defaults to '.'")
     sys.exit(1)
 
-def read_path()->str:
+def get_param()->str:
     "get --path from cmdline. [unix/win]"
     path = None
     if len(sys.argv) == 3:
@@ -437,6 +431,7 @@ def read_path()->str:
     return path
 
 def _log_mem(start_free):
+    # logging from mem optimisation
     gc.collect()
     free = gc.mem_free()
     used =  start_free - free
@@ -445,12 +440,12 @@ def _log_mem(start_free):
         file.write('{},{},{},{}\n'.format(start_free, free,used, sys.platform))
 
 def main():
-    print('stubber version :', stubber_version)
+    print('stubber version :', stbr_v)
     try:
         logging.basicConfig(level=logging.INFO)
     except NameError:
         pass
-    stubber = Stubber(path=read_path())
+    stubber = Stubber()
 
     print(stubber.info)
     # Option: Specify a firmware name & version
@@ -460,6 +455,8 @@ def main():
     # # stubber.add_modules(['bluetooth','GPS'])
     stubber.create_all_stubs()
     stubber.report()
-    _log_mem(stubber._start_free)
+
+    # logging from mem optimisation
+    _log_mem(stubber.init_mem)
 
 main()

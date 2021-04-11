@@ -11,7 +11,7 @@ from utime import sleep_us
 from ujson import dumps
 
 ENOENT = 2
-stbr_v  = '1.3.9'
+stbr_v = '1.3.10'
 # deal with ESP32 firmware specific implementations.
 try:
     from machine import resetWDT #LoBo
@@ -188,22 +188,22 @@ class Stubber():
                 self._log.warning("Skip module: {:<20}        : Excluded".format(mod_nm))
                 continue
 
-            file_name = "{}/{}.py".format(
+            f_nm = "{}/{}.py".format(
                 self.path,
                 mod_nm.replace(".", "/")
             )
             gc.collect()
             m1 = gc.mem_free() # pylint: disable=no-member
-            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm, file_name, m1))
+            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm, f_nm, m1))
             try:
-                self.create_module_stub(mod_nm, file_name)
+                self.create_module_stub(mod_nm, f_nm)
             except OSError:
                 pass
             gc.collect()
             self._log.debug("Memory     : {:>20} {:>6X}".format(m1, m1-gc.mem_free())) # pylint: disable=no-member
         self._log.info('Finally done')
 
-    def create_module_stub(self, mod_nm: str, file_name: str = None):
+    def create_module_stub(self, mod_nm: str, f_nm: str = None):
         "Create a Stub of a single python module"
         if mod_nm.startswith("_") and mod_nm != '_thread':
             self._log.warning("SKIPPING internal module:{}".format(mod_nm))
@@ -214,11 +214,11 @@ class Stubber():
             return
         if '/' in mod_nm:
             #for nested modules
-            self.ensure_folder(file_name)
+            self.ensure_folder(f_nm)
             mod_nm = mod_nm.replace('/', '.')
 
-        if file_name is None:
-            file_name = mod_nm.replace('.', '_') + ".py"
+        if f_nm is None:
+            f_nm = mod_nm.replace('.', '_') + ".py"
 
         #import the module (as new_mod) to examine it
         failed = False
@@ -231,15 +231,15 @@ class Stubber():
             if not '.' in mod_nm:
                 return
 
-        #re-try import after importing parents
+        #re-try import after importing pars
         if failed and '.' in mod_nm:
-            self._log.debug("re-try import with parents")
-            levels = mod_nm.split('.')
-            for n in range(1, len(levels)):
-                par_nm = ".".join(levels[0:n])
+            self._log.debug("re-try import with pars")
+            lvls = mod_nm.split('.')
+            for n in range(1, len(lvls)):
+                par_nm = ".".join(lvls[0:n])
                 try:
-                    parent = __import__(par_nm)
-                    del parent
+                    par = __import__(par_nm)
+                    del par
                 except (ImportError, KeyError):
                     pass
             try:
@@ -250,22 +250,22 @@ class Stubber():
                 return
 
         # Start a new file
-        with open(file_name, "w") as fp:
+        with open(f_nm, "w") as fp:
             # todo: improve header
             s = "\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(
                 mod_nm, self._fwid, self.info, stbr_v)
             fp.write(s)
             self.write_object_stub(fp, new_mod, mod_nm, "")
-            self._report.append({"module":mod_nm, "file": file_name})
+            self._report.append({"module":mod_nm, "file": f_nm})
 
-        if not mod_nm in ["os", "sys", "logging", "gc", "createstubs"]:
+        if not mod_nm in ["os", "sys", "logging", "gc"]:
             #try to unload the module unless we use it
             try:
                 del new_mod
             except (OSError, KeyError):#lgtm [py/unreachable-statement]
                 self._log.warning("could not del new_mod")
             for m in sys.modules:
-                if not m in ["os", "sys", "logging", "gc", "createstubs"]: 
+                if not m in ["os", "sys", "logging", "gc"]:
                     try:
                         del sys.modules[mod_nm]
                     except KeyError:
@@ -458,15 +458,15 @@ def uPy()->bool:
         return False
     except (NotImplementedError, SyntaxError):
         return True
-        
+
 def _log_mem(start_free):
-    # logging from mem optimisation
+    # logging for mem optimisation
     gc.collect()
     free = gc.mem_free()
-    used =  start_free - free
-    logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free,used))
+    used = start_free - free
+    logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free, used))
     with open('./memory.csv', 'a') as file:
-        file.write('{},{},{},{}\n'.format(start_free, free,used, sys.platform))
+        file.write('{},{},{},{}\n'.format(start_free, free, used, sys.platform))
 
 def main():
     print('stubber version :', stbr_v)

@@ -56,16 +56,8 @@ class Stubber():
         # there is no option to discover modules from upython, need to hardcode
         # below contains combined modules from  Micropython ESP8622, ESP32, Loboris, pycom and ulab
         # modules to stub : 118
-        self.mods = ['_onewire', '_thread', '_uasyncio', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'builtins', 'cmath', 'collections', 'crypto',
-                     'curl', 'dht', 'display', 'ds18x20', 'errno', 'esp', 'esp32', 'flashbdev', 'framebuf', 'freesans20', 'functools', 'gc', 'gsm', 'hashlib',
-                     'heapq', 'inisetup', 'io', 'json', 'lcd160cr', 'lcd160cr_test', 'logging', 'lwip', 'machine', 'math', 'microWebSocket', 'microWebSrv', 'microWebTemplate',
-                     'micropython', 'mpu6500', 'mpu9250', 'neopixel', 'network', 'ntptime', 'onewire', 'os', 'pyb', 'pycom', 'pye', 'queue', 'random', 're', 'requests',
-                     'select', 'socket', 'ssd1306', 'ssh', 'ssl', 'stm', 'struct', 'sys', 'time', 'tpcalib', 'uarray', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event',
-                     'uasyncio/funcs', 'uasyncio/lock', 'uasyncio/stream', 'ubinascii', 'ubluetooth', 'ucollections', 'ucrypto', 'ucryptolib', 'uctypes', 'uerrno',
-                     'uhashlib', 'uheapq', 'uio', 'ujson', 'ulab', 'ulab/approx', 'ulab/compare', 'ulab/fft', 'ulab/filter', 'ulab/linalg', 'ulab/numerical',
-                     'ulab/poly', 'ulab/user', 'ulab/vector', 'umachine', 'umqtt/robust', 'umqtt/simple', 'uos', 'upip', 'upip_utarfile', 'uqueue', 'urandom',
-                     'ure', 'urequests', 'urllib/urequest', 'uselect', 'usocket', 'ussl', 'ustruct', 'usys', 'utime', 'utimeq', 'uwebsocket', 'uzlib', 'websocket',
-                     'websocket_helper', 'writer', 'ymodem', 'zlib']
+        self.mods = [line.rstrip('\r').rstrip('\n') for line in open('stublist.txt')]
+        
         # try to avoid running out of memory with nested mods
         # self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
 
@@ -175,7 +167,8 @@ class Stubber():
         "Create stubs for all configured modules"
         self._log.info("Start micropython-stubber v{} on {}".format(stbr_v, self._fwid))
         # start with the (more complex) modules with a / first to reduce memory problems
-        self.mods = [m for m in self.mods if '/' in m] + [m for m in self.mods if '/' not in m]
+        # 
+        #MEM self.mods = [m for m in self.mods if '/' in m] + [m for m in self.mods if '/' not in m]
         gc.collect()
         for mod_nm in self.mods:
             if mod_nm.startswith("_") and mod_nm != '_thread':

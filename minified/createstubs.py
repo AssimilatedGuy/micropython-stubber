@@ -8,7 +8,7 @@ import uos as os
 from utime import sleep_us
 from ujson import dumps
 ENOENT=2
-stbr_v ='1.3.10'
+stbr_v='1.3.10'
 try:
  from machine import resetWDT 
 except ImportError:
@@ -40,7 +40,7 @@ class Stubber():
    pass
   self.prblm=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
   self.excl=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
-  self.mods=['_onewire','_thread','_uasyncio','ak8963','apa102','apa106','array','binascii','btree','builtins','cmath','collections','crypto']
+  self.mods=[line.rstrip('\r').rstrip('\n')for line in open('stublist.txt')]
  @staticmethod
  def _info():
   i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
@@ -107,7 +107,6 @@ class Stubber():
  def add_modules(self,modules:list):
   self.mods=sorted(set(self.mods)|set(modules))
  def create_all_stubs(self):
-  self.mods=[m for m in self.mods if '/' in m]+[m for m in self.mods if '/' not in m]
   gc.collect()
   for mod_nm in self.mods:
    if mod_nm.startswith("_")and mod_nm!='_thread':
@@ -302,7 +301,7 @@ def uPy()->bool:
 def _log_mem(start_free):
  gc.collect()
  free=gc.mem_free()
- used= start_free-free
+ used=start_free-free
  print('start free:{:,}, end: {:,}, used {:,}'.format(start_free,free,used))
  with open('./memory.csv','a')as file:
   file.write('{},{},{},{}\n'.format(start_free,free,used,sys.platform))

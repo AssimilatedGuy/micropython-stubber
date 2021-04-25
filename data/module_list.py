@@ -42,7 +42,7 @@ def read_modules(path: Path = None)->Set:
 
     return all_modules
 
-def wrapped(modules : Set)-> str:
+def wrapped(modules: Set)-> str:
     "wrap code line at spaces"
     long_line = str(modules)
     _wrapped = "        self.modules = "
@@ -52,7 +52,7 @@ def wrapped(modules : Set)-> str:
     #find seperator
     while len(long_line) > MAX_WIDTH:
         p1 = long_line.find("', ", MAX_WIDTH)
-        #drop space
+        # drop space
         p1 += 3
         short = long_line[0:p1-1] 
         _wrapped += short + '\n' + ' '*IDENT
@@ -63,21 +63,26 @@ def wrapped(modules : Set)-> str:
 
 def main():
     """
-    helper script 
+    helper script
     generate a few lines of code with all modules to be stubbed by createstubs
     """
     #######################################################################
     # the exceptions
     #######################################################################
     mods_problematic = set(["upysh", "webrepl_setup", "http_client", "http_client_ssl", "http_server", "http_server_ssl"])
-    mods_excluded = set(["__main__", "_main", "_boot", "webrepl", "_webrepl", "port_diag", "example_sub_led", "example_pub_button"])
+    mods_excluded = set(["__main__", "_main", "_boot",              # standard boot files
+                         "webrepl", "_webrepl",                     # not used in code
+                         "port_diag",                               # not used in code
+                         "example_sub_led", "example_pub_button"    # Samples on esp8266
+                         "upip", "upip_utarfile"                    # not used in code
+                         ])
 
     all_modules = read_modules()
     modules_to_stub = sorted(all_modules - set(mods_excluded | mods_problematic))
 
     # remove pycom MQTT* from defaults
-    modules_to_stub  = sorted({m for m in modules_to_stub if not m.startswith('MQTT')})
-    
+    modules_to_stub = sorted({m for m in modules_to_stub if not m.startswith('MQTT')})
+
     print("modules to stub :", len(modules_to_stub))
     print(wrapped(modules_to_stub))
 

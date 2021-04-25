@@ -74,15 +74,4 @@ jobs:
 
 
 
-    # does not work at all 
-    # - name: run coveralls
-    #   run: |
-    #     coveralls
-
-    # - name: Send to Coveralls
-    #   uses: coverallsapp/github-action@master
-    #   with:
-    #     github-token: ${{ secrets.GITHUB_TOKEN }}
-    #   if: ${{ always() }}
-
 

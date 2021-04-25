@@ -11,8 +11,7 @@ from utime import sleep_us
 from ujson import dumps
 
 ENOENT = 2
-stbr_v = '1.3.8'
-
+stbr_v = '1.3.10'
 # deal with ESP32 firmware specific implementations.
 try:
     from machine import resetWDT #LoBo
@@ -26,7 +25,7 @@ class Stubber():
         self.init_mem = gc.mem_free()
         try:
             if os.uname().release == '1.13.0' and os.uname().version < 'v1.13-103':
-                raise NotImplementedError("MicroPyton 1.13.0 cannot be stubbed")
+                raise NotImplementedError("MicroPython 1.13.0 cannot be stubbed")
         except AttributeError:
             pass
 
@@ -55,32 +54,28 @@ class Stubber():
         self.prblm = ["upysh", "webrepl_setup", "http_client", "http_client_ssl", "http_server", "http_server_ssl"]
         self.excl = ["webrepl", "_webrepl", "port_diag", "example_sub_led.py", "example_pub_button.py"]
         # there is no option to discover modules from upython, need to hardcode
-        # below contains combined modules from  Micropython ESP8622, ESP32, Loboris and pycom
-        self.mods = ['_thread', 'ak8963', 'apa102', 'apa106', 'array', 'binascii', 'btree', 'bluetooth', 'builtins', 'cmath', 'collections',
-                        'crypto', 'curl', 'dht', 'display', 'ds18x20', 'errno', 'esp', 'esp32', 'flashbdev', 'framebuf', 'freesans20',
-                        'functools', 'gc', 'gsm', 'hashlib', 'heapq', 'inisetup', 'io', 'json', 'logging', 'lwip', 'machine', 'math',
-                        'microWebSocket', 'microWebSrv', 'microWebTemplate', 'micropython', 'mpu6500', 'mpu9250', 'neopixel', 'network',
-                        'ntptime', 'onewire', 'os', 'port_diag', 'pycom', 'pye', 'random', 're', 'requests', 'select', 'socket', 'ssd1306',
-                        'ssh', 'ssl', 'struct', 'sys', 'time', 'tpcalib', 'ubinascii', 'ucollections', 'ucryptolib', 'uctypes',
-                        'uerrno', 'uhashlib', 'uheapq', 'uio', 'ujson', 'umqtt/robust', 'umqtt/simple', 'uos', 'upip', 'upip_utarfile', 'urandom',
-                        'ure', 'urequests', 'urllib/urequest', 'uselect', 'usocket', 'ussl', 'ustruct', 'utime', 'utimeq', 'uwebsocket', 'uzlib',
-                        'websocket', 'websocket_helper', 'writer', 'ymodem', 'zlib', 'pycom', 'crypto',
-                        'pyb', 'stm', 'pycopy']
-                        # todo: block in logic ? There are richer stubs 
-                        # 'uasyncio/lock', 'uasyncio/stream', 'uasyncio/__init__', 'uasyncio/core', 'uasyncio/event', 'uasyncio/funcs'] #1.13
+        # below contains combined modules from  Micropython ESP8622, ESP32, Loboris, pycom and ulab
+        # modules to stub : 118
+        self.mods = [line.rstrip('\r').rstrip('\n') for line in open('stublist.txt')]
+        
+        # try to avoid running out of memory with nested mods
+        # self.include_nested = gc.mem_free() > 3200 # pylint: disable=no-member
 
     @staticmethod
     def _info():
         "collect base information on this runtime"
         i = {'name': sys.implementation.name,    # - micropython
-                'release': '0.0.0',                 # mpy semver from sys.implementation or os.uname()release
-                'version': '0.0.0',                 # major.minor.0
-                'build': '',                        # parsed from version
-                'family': sys.implementation.name,  # fw families, micropython , pycopy , lobo , pycomm
-                'platform': sys.platform,               # port: esp32 / win32 / linux
-                'port': sys.platform,               # port: esp32 / win32 / linux
-                'ver': ''                           # short version
-                }
+             'release': '0.0.0',                 # mpy semver from sys.implementation or os.uname()release
+             'version': '0.0.0',                 # major.minor.0
+             'build': '',                        # parsed from version
+             'sysname': 'unknown',               # esp32
+             'nodename': 'unknown',              # ! not on all builds
+             'machine': 'unknown',               # ! not on all builds
+             'family': sys.implementation.name,  # fw families, micropython , pycopy , lobo , pycomm
+             'platform': sys.platform,               # port: esp32 / win32 / linux
+             'port': sys.platform,               # port: esp32 / win32 / linux
+             'ver': ''                           # short version
+            }
         try:
             i['release'] = ".".join([str(i) for i in sys.implementation.version])
             i['version'] = i['release']
@@ -91,7 +86,10 @@ class Stubber():
         if sys.platform not in ('unix', 'win32', 'esp8266'):
             try:
                 u = os.uname()
+                i['sysname'] = u.sysname
+                i['nodename'] = u.nodename
                 i['release'] = u.release
+                i['machine'] = u.machine
                 # parse micropython build info
                 if ' on ' in u.version:
                     s = u.version.split('on ')[0]
@@ -99,7 +97,7 @@ class Stubber():
                         i['build'] = s.split('-')[1]
                     except IndexError:
                         pass
-            except (IndexError, AttributeError):
+            except (IndexError, AttributeError, TypeError):
                 pass
 
         try: # families
@@ -111,11 +109,21 @@ class Stubber():
         if i['platform'] == 'esp32_LoBo':
             i['family'] = 'loboris'
             i['port'] = 'esp32'
+        elif i['sysname'] == 'ev3':
+            # ev3 pybricks
+            i['family'] = 'ev3-pybricks'
+            i['release'] = "1.0.0"
+            try:
+                # Version 2.0 introduces the EV3Brick() class.
+                from pybricks.hubs import EV3Brick
+                i['release'] = "2.0.0"
+            except ImportError:
+                pass
 
         # version info
-        i['ver'] = 'v'+i['release']
+        if i['release']:
+            i['ver'] = 'v'+i['release']
         if i['family'] != 'loboris':
-            # todo: sanity check if this makes sense or not
             if i['release'] >= '1.10.0' and i['release'].endswith('.0'):
                 #drop the .0 for newer releases
                 i['ver'] = i['release'][:-2]
@@ -159,50 +167,51 @@ class Stubber():
         "Create stubs for all configured modules"
         self._log.info("Start micropython-stubber v{} on {}".format(stbr_v, self._fwid))
         # start with the (more complex) modules with a / first to reduce memory problems
-        self.mods = [m for m in self.mods if '/' in m] + [m for m in self.mods if '/' not in m]
+        # 
+        #MEM self.mods = [m for m in self.mods if '/' in m] + [m for m in self.mods if '/' not in m]
         gc.collect()
         for mod_nm in self.mods:
             if mod_nm.startswith("_") and mod_nm != '_thread':
                 self._log.warning("Skip module: {:<20}        : Internal ".format(mod_nm))
                 continue
             if mod_nm in self.prblm:
-                self._log.warning("Skip module: {:<20}        : Known problematic".format(mod_nm))
+                self._log.warning("Skip module: {:<20}        : Known prblm".format(mod_nm))
                 continue
             if mod_nm in self.excl:
                 self._log.warning("Skip module: {:<20}        : Excluded".format(mod_nm))
                 continue
 
-            file_name = "{}/{}.py".format(
+            f_nm = "{}/{}.py".format(
                 self.path,
                 mod_nm.replace(".", "/")
             )
             gc.collect()
             m1 = gc.mem_free() # pylint: disable=no-member
-            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm, file_name, m1))
+            self._log.info("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm, f_nm, m1))
             try:
-                self.create_module_stub(mod_nm, file_name)
+                self.create_module_stub(mod_nm, f_nm)
             except OSError:
                 pass
             gc.collect()
             self._log.debug("Memory     : {:>20} {:>6X}".format(m1, m1-gc.mem_free())) # pylint: disable=no-member
         self._log.info('Finally done')
 
-    def create_module_stub(self, mod_nm: str, file_name: str = None):
+    def create_module_stub(self, mod_nm: str, f_nm: str = None):
         "Create a Stub of a single python module"
         if mod_nm.startswith("_") and mod_nm != '_thread':
             self._log.warning("SKIPPING internal module:{}".format(mod_nm))
             return
 
         if mod_nm in self.prblm:
-            self._log.warning("SKIPPING problematic module:{}".format(mod_nm))
+            self._log.warning("SKIPPING prblm module:{}".format(mod_nm))
             return
         if '/' in mod_nm:
             #for nested modules
-            self.ensure_folder(file_name)
+            self.ensure_folder(f_nm)
             mod_nm = mod_nm.replace('/', '.')
 
-        if file_name is None:
-            file_name = mod_nm.replace('.', '_') + ".py"
+        if f_nm is None:
+            f_nm = mod_nm.replace('.', '_') + ".py"
 
         #import the module (as new_mod) to examine it
         failed = False
@@ -215,15 +224,15 @@ class Stubber():
             if not '.' in mod_nm:
                 return
 
-        #re-try import after importing parents
+        #re-try import after importing pars
         if failed and '.' in mod_nm:
-            self._log.debug("re-try import with parents")
-            levels = mod_nm.split('.')
-            for n in range(1, len(levels)):
-                par_nm = ".".join(levels[0:n])
+            self._log.debug("re-try import with pars")
+            lvls = mod_nm.split('.')
+            for n in range(1, len(lvls)):
+                par_nm = ".".join(lvls[0:n])
                 try:
-                    parent = __import__(par_nm)
-                    del parent
+                    par = __import__(par_nm)
+                    del par
                 except (ImportError, KeyError):
                     pass
             try:
@@ -234,22 +243,22 @@ class Stubber():
                 return
 
         # Start a new file
-        with open(file_name, "w") as fp:
+        with open(f_nm, "w") as fp:
             # todo: improve header
             s = "\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(
                 mod_nm, self._fwid, self.info, stbr_v)
             fp.write(s)
             self.write_object_stub(fp, new_mod, mod_nm, "")
-            self._report.append({"module":mod_nm, "file": file_name})
+            self._report.append({"module":mod_nm, "file": f_nm})
 
-        if not mod_nm in ["os", "sys", "logging", "gc", "createstubs"]:
+        if not mod_nm in ["os", "sys", "logging", "gc"]:
             #try to unload the module unless we use it
             try:
                 del new_mod
             except (OSError, KeyError):#lgtm [py/unreachable-statement]
                 self._log.warning("could not del new_mod")
             for m in sys.modules:
-                if not m in ["os", "sys", "logging", "gc", "createstubs"]: 
+                if not m in ["os", "sys", "logging", "gc"]:
                     try:
                         del sys.modules[mod_nm]
                     except KeyError:
@@ -259,7 +268,7 @@ class Stubber():
     def write_object_stub(self, fp, object_expr: object, obj_name: str, indent: str):
         "Write a module/object stub to an open file. Can be called recursive."
         if object_expr in self.prblm:
-            self._log.warning("SKIPPING problematic module:{}".format(object_expr))
+            self._log.warning("SKIPPING prblm module:{}".format(object_expr))
             return
 
         self._log.debug("DUMP    : {}".format(object_expr))
@@ -430,14 +439,27 @@ def get_param()->str:
         show_help()
     return path
 
+def uPy()->bool:
+    "runtime test to determine cpython(during pytest) or micropython"
+    #pylint: disable=unused-variable,eval-used
+    try:
+        # either test should fail on micropython
+        # a) https://docs.micropython.org/en/latest/genrst/syntax.html#spaces
+        # b) https://docs.micropython.org/en/latest/genrst/builtin_types.html#bytes-with-keywords-not-implemented
+        a = eval("1and 0")
+        b = bytes("abc", encoding="utf8")
+        return False
+    except (NotImplementedError, SyntaxError):
+        return True
+
 def _log_mem(start_free):
-    # logging from mem optimisation
+    # logging for mem optimisation
     gc.collect()
     free = gc.mem_free()
-    used =  start_free - free
-    logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free,used))
+    used = start_free - free
+    logging.info('start free:{:,}, end: {:,}, used {:,}'.format(start_free, free, used))
     with open('./memory.csv', 'a') as file:
-        file.write('{},{},{},{}\n'.format(start_free, free,used, sys.platform))
+        file.write('{},{},{},{}\n'.format(start_free, free, used, sys.platform))
 
 def main():
     print('stubber version :', stbr_v)
@@ -459,4 +481,5 @@ def main():
     # logging from mem optimisation
     _log_mem(stubber.init_mem)
 
-main()
+if __name__ == "__main__" or uPy():
+    main()

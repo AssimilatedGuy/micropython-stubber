@@ -1,5 +1,5 @@
 
-# Boost MicroPython in VSCode and other modern editors
+# Boost MicroPython productivity in VSCode
 
 The intellisense and code linting that is so prevalent in modern editors, does not work out-of-the-gate for MicroPython projects.
 While the language is Python, the modules used are different from CPython , and also different ports have different modules and classes , or the same class with different parameters.
@@ -39,7 +39,7 @@ MicroPython-Stubber is licensed under the MIT license, and all contributions sho
 
 ## Contributions
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
-[![All Contributors](https://img.shields.io/badge/all_contributors-17-orange.svg?style=flat-square)](#contributors-)
+[![All Contributors](https://img.shields.io/badge/all_contributors-19-orange.svg?style=flat-square)](#11---contributions)
 <!-- ALL-CONTRIBUTORS-BADGE:END --> 
 
 ---
@@ -50,13 +50,13 @@ MicroPython-Stubber is licensed under the MIT license, and all contributions sho
 
 -----------------------------
 
-# 1 - Approach to providing stub information
+# 1 - Approach to collecting stub information
 
 The stubs are used by 3 components.
 
-  2. Pylint
-  3. the VSCode Autocompletion service 
-  4. the VSCode Analysis server ( MPLS / Lancelot)
+  2. pylint
+   3. the VSCode Pylance Language Server
+   4. the VSCode Python add-in
 
 These 3 tools work together to provide code completion/prediction, type checking and all the other good things.
 For this the order in which these tools use, the stub folders is significant, and best results are when all use the same order. 
@@ -73,7 +73,7 @@ In most cases the best results are achieved by the below setup:
 Note that for some modules (such as the  `gc`, `time`  and `sys` modules) this approach does not work. 
  3. **Frozen stubs**. Most micropython firmwares include a number of python modules that have been included in the firmware as frozen modules in order to take up less memory.
  These modules have been extracted from the source code. 
- 4. **Firmware Stubs**. For all other modules that are included on the board, [micropython-stubber] or [micropy-cli] has been used to extract as much information as available, and provide that as stubs. While there is a lot of relevant and useful information for code completion, it does unfortunately not provide all details regarding parameters that the earlier  options may provide.
+ 4. **Firmware Stubs**. For all other modules that are included on the board, [micropython-stubber] or [micropy-cli] has been used to extract as much information as available, and provide that as stubs. While there is a lot of relevant and useful information for code completion, it does unfortunately not provide all details regarding parameters that the above options may provide.
 
 ## 1.1 - Stub collection process 
 
@@ -164,28 +164,55 @@ python.linting. ||| [Linting Settings](https://code.visualstudio.com/docs/python
 enabled | true   | Specifies whether to enable linting in general.|
 pylintEnabled | true | Specifies whether to enable Pylint.|
 
-### 3.2.1 - Microsoft Python Language Server settings  [MPLS]
 
-
-The language server settings apply when python.jediEnabled is false.
-
-Setting | Default   | Description | ref 
---------|-----------|--------------|--
-python.jediEnabled | Default *true*, must be set to FALSE | Indicates whether to use Jedi as the IntelliSense engine (true) or the Microsoft Python Language Server (false). Note that the language server requires a platform that supports .NET Core 2.1 or newer. |
-python.analysis. ||| [code analysis settings)](https://code.visualstudio.com/docs/python/settings-reference#_code-analysis-settings)
-typeshedPaths | [] | Paths to look for typeshed modules on GitHub.|
-
-*Our  long-term plan is to transition our Microsoft Python Language Server users over to Pylance and eventually deprecate and remove the old language server as a supported option*
 
 ### 3.2.2 - Pylance - pyright
 
-The intent is to adjust the configuration to support Lancelot to work in the same way as MPLS, but this currently runs into some issues where pylance cannot resolve builtins and other symbols 
+[Pylance]([Pylance - Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=ms-python.vscode-pylance)) is replacing MPLS and provides the same and more functionality.
 
 | Setting                        | Default   | Description                                                  |
 | ------------------------------ | --------- | ------------------------------------------------------------ |
 | python.analysis.stubPath       | ./typings | Used to allow a user to specify a path to a directory that contains custom type stubs. Each package's type stub file(s) are expected to be in its own subdirectory. |
 | python.analysis.autoSearchPath | true      | Used to automatically add search paths based on some predefined names (like `src`). |
 | python.analysis.extraPaths     | []        | Used to specify extra search paths for import resolution. This replaces the old `python.autoComplete.extraPaths` setting. |
+
+### 3.2.3 - Sample configuration for Pylance
+
+To update a project configuration from MPLS to Pylance is simple : 
+
+Open your VSCode settings file :  ` .vscode/settings.json`
+
+- change the  language server to Pylance ➡  `"python.languageServer": "Pylance",`
+- remove  the section: `python.autoComplete.typeshedPaths`
+- remove the section : `python.analysis.typeshedPaths`
+- optionally add :  `"python.analysis.autoSearchPath": true,`
+
+
+
+The result should be something like this :
+
+```  json
+{
+     "python.languageServer": "Pylance",
+     "python.analysis.autoSearchPath": true,
+     "python.autoComplete.extraPaths": [
+          "src/lib", 
+          "all-stubs/cpython_patch", 
+          "all-stubs/mpy_1_13-nightly_frozen/esp32/GENERIC", 
+          "all-stubs/esp32_1_13_0-103",
+     ]
+    "python.linting.enabled": true,
+    "python.linting.pylintEnabled": true,
+}
+
+```
+
+If you notice problems :
+
+* The paths are case sensitive (which may not be apparent for your platform)
+* To allow the config to be used cross platform you can use forward slashes `/`, _note that this is also accepted on Windows_ 
+* If you prefer to use a backslash :  in JSON notation the `\` (backslash) MUST be escaped as `\\` (double backslash)
+* Remember to put the 'Frozen' module paths before the generated module paths. 
 
 References : 
 
@@ -198,51 +225,6 @@ possible testing / diag :
 [pyright/command-line.md at master · microsoft/pyright (github.com)](https://github.com/microsoft/pyright/blob/master/docs/command-line.md)
 
 
-
-
-### 3.2.3 - Sample configuration VSCode settings
-Note: the below settings include the paths to multiple folders, containing stubs for different firmware. 
-you can remove ( or //comment ) the lines of firmwares that you to not use.
-
-File: .vscode/settings.json
-
-<TODO: update paths to naming convention>
-
-```  json
-{
-    "python.linting.enabled": true,
-
-    "python.autoComplete.extraPaths": [
-        "stubs/esp32_LoBo_3_2_24_Frozen",
-        "stubs/esp32_LoBo_3_2_24",
-        "stubs/esp32_1_10_0_Frozen",
-        "stubs/esp32_1_10_0",
-    ],
-    "python.autoComplete.typeshedPaths": [
-        "stubs/esp32_LoBo_3_2_24_Frozen",
-        "stubs/esp32_LoBo_3_2_24",
-        "stubs/esp32_1_10_0_Frozen",
-        "stubs/esp32_1_10_0",
-    ],
-    "python.analysis.typeshedPaths": [
-        "stubs/esp32_LoBo_3_2_24_Frozen",
-        "stubs/esp32_LoBo_3_2_24",
-        "stubs/esp32_1_10_0_Frozen",
-        "stubs/esp32_1_10_0",
-    ],
-
-    "python.linting.pylintEnabled": true,
-}
-
-```
-
-If you notice problems :
-
-* The paths are case sensitive (which may not be apparent for your platform)
-
-* To allow the config to be used cross platform you can use forward slashes `/`, _note that this is also accepted on Windows_ 
-* If you prefer to use a backslash :  in JSON notation the `\` (backslash) MUST be escaped as `\\` (double backslash)
-* Remember to put the 'Frozen' module paths before the generated module paths. 
 
 ## 3.3 - pylint 
 
@@ -262,6 +244,22 @@ disable = missing-docstring, line-too-long, trailing-newlines, broad-except, log
         # the 2nd  line deals with the limited information in the generated stubs.
 
 ```
+
+
+
+## 3.3 - Deprecated - Microsoft Python Language Server settings  [MPLS]
+
+MPLS is being replaced by Pylance , and the below configuration is for reference only .
+
+The language server settings apply when python.jediEnabled is false.
+
+| Setting            | Default                              | Description                                                  | ref                                                          |
+| ------------------ | ------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| python.jediEnabled | Default *true*, must be set to FALSE | Indicates whether to use Jedi as the IntelliSense engine (true) or the Microsoft Python Language Server (false). Note that the language server requires a platform that supports .NET Core 2.1 or newer. |                                                              |
+| python.analysis.   |                                      |                                                              | [code analysis settings)](https://code.visualstudio.com/docs/python/settings-reference#_code-analysis-settings) |
+| typeshedPaths      | []                                   | Paths to look for typeshed modules on GitHub.                |                                                              |
+
+*Our  long-term plan is to transition our Microsoft Python Language Server users over to Pylance and eventually deprecate and remove the old language server as a supported option*
 
 
 
@@ -554,7 +552,7 @@ if you develop on other platform, it is quite likely that you may need to change
 * setup sister repos
 * run test to verify setup 
 
-# 7.1 - wresting with two pythons 
+# 7.1 - Wresting with two pythons 
 
 This project combines CPython and MicroPython in one project.  As a result you may/will need to switch the configuration of pylint and VSCode to match the section of code that you are working on.  This is caused by the fact that pylint does not support per-folder configuration 
 
@@ -583,13 +581,21 @@ see below overview
 | checkout_repo | simple_git module<br />retrieval of frozen modules | does not use mocking but actually retrieves different firmware versions locally using git or dowNloads modules for online | local windows           |
 | common        | all other tests                                    | common                                                       | local + github action   |
 
+also see [test documentation](tests/readme.md)
 
+**Platform detection to support pytest**
+In order to allow both simple usability om MicroPython and testability on Full Python,
+createsubs dos a runtimne test to determin the actual platform it is runnin on while importing the module
+This is similar to using the `if __name__ == "__main__":` preamble 
+If running on MicroPython,
+    then it starts stubbing 
 
-**Testing on linux port**
-
-in order to be able to test `createstubs.py`  it has been updated to run on linux, and accept a --path parameter to indicate tha pathe where the stubs should be stored.
-
-
+``` python
+if isMicroPython():
+    main()
+```
+**Testing on micropython linux port(s)**
+in order to be able to test `createstubs.py`, it has been updated to run on linux, and accept a --path parameter to indicate the path where the stubs should be stored.
 
 ## 7.4 github actions
 
@@ -717,15 +723,14 @@ https://github.com/python/mypy/blob/master/mypy/stubgen.py
 
 ----------------
 
-# 11 - contributions 
+# 11 - Contributions
 
 <!-- ALL-CONTRIBUTORS-LIST:START - Do not remove or modify this section -->
 <!-- prettier-ignore-start -->
 <!-- markdownlint-disable -->
-
 <table>
   <tr>
-    <td align="center"><a href="https://github.com/Josverl"><img src="https://avatars2.githubusercontent.com/u/981654?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jos Verlinde</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/commits?author=josverl" title="Code">💻</a> <a href="#research-josverl" title="Research">🔬</a> <a href="#ideas-josverl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#content-josverl" title="Content">🖋</a> <a href="#stubs-josverl" title="MicroPython stubs">📚</a> <a href="#test-josverl" title="Test">✔</a></td>
+    <td align="center"><a href="https://github.com/Josverl"><img src="https://avatars2.githubusercontent.com/u/981654?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Jos Verlinde</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/commits?author=josverl" title="Code">💻</a> <a href="#research-josverl" title="Research">🔬</a> <a href="#ideas-josverl" title="Ideas, Planning, & Feedback">🤔</a> <a href="#content-josverl" title="Content">🖋</a> <a href="#stubs-josverl" title="MicroPython stubs">📚</a> <a href="#test-josverl" title="Test">✔</a></td>
     <td align="center"><a href="https://thonny.org/"><img src="https://avatars1.githubusercontent.com/u/46202078?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Thonny, Python IDE for beginners</b></sub></a><br /><a href="#ideas-thonny" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-thonny" title="Research">🔬</a></td>
     <td align="center"><a href="https://micropython.org/"><img src="https://avatars1.githubusercontent.com/u/6298560?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MicroPython</b></sub></a><br /><a href="#data-micropython" title="Data">🔣</a> <a href="#stubs-micropython" title="MicroPython stubs">📚</a></td>
     <td align="center"><a href="https://github.com/loboris"><img src="https://avatars3.githubusercontent.com/u/6280349?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Boris Lovosevic</b></sub></a><br /><a href="#data-loboris" title="Data">🔣</a> <a href="#stubs-loboris" title="MicroPython stubs">📚</a></td>
@@ -734,20 +739,23 @@ https://github.com/python/mypy/blob/master/mypy/stubgen.py
     <td align="center"><a href="https://github.com/pycom"><img src="https://avatars2.githubusercontent.com/u/16415153?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Pycom</b></sub></a><br /><a href="#infra-pycom" title="Infrastructure (Hosting, Build-Tools, etc)">🚇</a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/BradenM"><img src="https://avatars1.githubusercontent.com/u/5913808?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Braden Mars</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3ABradenM" title="Bug reports">🐛</a> <a href="https://github.com/Josverl/micropython-stubbber/commits?author=BradenM" title="Code">💻</a> <a href="#stubs-BradenM" title="MicroPython stubs">📚</a> <a href="#platform-BradenM" title="Packaging/porting to new platform">📦</a></td>
-    <td align="center"><a href="https://binary.com.au/"><img src="https://avatars2.githubusercontent.com/u/175909?v=4?s=100" width="100px;" alt=""/><br /><sub><b>James Manners</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/commits?author=jmannau" title="Code">💻</a></td>
-    <td align="center"><a href="http://patrickwalters.us/"><img src="https://avatars0.githubusercontent.com/u/4002194?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Patrick</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3Aaskpatrickw" title="Bug reports">🐛</a> <a href="https://github.com/Josverl/micropython-stubbber/commits?author=askpatrickw" title="Code">💻</a> <a href="#stubs-askpatrickw" title="MicroPython stubs">📚</a></td>
+    <td align="center"><a href="https://github.com/BradenM"><img src="https://avatars1.githubusercontent.com/u/5913808?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Braden Mars</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3ABradenM" title="Bug reports">🐛</a> <a href="https://github.com/Josverl/micropython-stubber/commits?author=BradenM" title="Code">💻</a> <a href="#stubs-BradenM" title="MicroPython stubs">📚</a> <a href="#platform-BradenM" title="Packaging/porting to new platform">📦</a></td>
+    <td align="center"><a href="https://binary.com.au/"><img src="https://avatars2.githubusercontent.com/u/175909?v=4?s=100" width="100px;" alt=""/><br /><sub><b>James Manners</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/commits?author=jmannau" title="Code">💻</a> <a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3Ajmannau" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="http://patrickwalters.us/"><img src="https://avatars0.githubusercontent.com/u/4002194?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Patrick</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3Aaskpatrickw" title="Bug reports">🐛</a> <a href="https://github.com/Josverl/micropython-stubber/commits?author=askpatrickw" title="Code">💻</a> <a href="#stubs-askpatrickw" title="MicroPython stubs">📚</a></td>
     <td align="center"><a href="https://opencollective.com/pythonseverywhere"><img src="https://avatars3.githubusercontent.com/u/16009100?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Paul m. p. P.</b></sub></a><br /><a href="#ideas-pmp-p" title="Ideas, Planning, & Feedback">🤔</a> <a href="#research-pmp-p" title="Research">🔬</a></td>
     <td align="center"><a href="https://github.com/edreamleo"><img src="https://avatars0.githubusercontent.com/u/592928?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Edward K. Ream</b></sub></a><br /><a href="#plugin-edreamleo" title="Plugin/utility libraries">🔌</a></td>
     <td align="center"><a href="https://github.com/dastultz"><img src="https://avatars3.githubusercontent.com/u/4334042?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Daryl Stultz</b></sub></a><br /><a href="#stubs-dastultz" title="MicroPython stubs">📚</a></td>
-    <td align="center"><a href="https://github.com/cabletie"><img src="https://avatars1.githubusercontent.com/u/2356734?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Keeping things together</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3Acabletie" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/cabletie"><img src="https://avatars1.githubusercontent.com/u/2356734?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Keeping things together</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3Acabletie" title="Bug reports">🐛</a></td>
   </tr>
   <tr>
-    <td align="center"><a href="https://github.com/vbolshakov"><img src="https://avatars2.githubusercontent.com/u/2453324?v=4?s=100" width="100px;" alt=""/><br /><sub><b>vbolshakov</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3Avbolshakov" title="Bug reports">🐛</a> <a href="#stubs-vbolshakov" title="MicroPython stubs">📚</a></td>
-    <td align="center"><a href="https://lemariva.com/"><img src="https://avatars2.githubusercontent.com/u/15173329?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Mauro Riva</b></sub></a><br /><a href="#blog-lemariva" title="Blogposts">📝</a> <a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3Alemariva" title="Bug reports">🐛</a></td>
-    <td align="center"><a href="https://github.com/MathijsNL"><img src="https://avatars0.githubusercontent.com/u/1612886?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MathijsNL</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubbber/issues?q=author%3AMathijsNL" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/vbolshakov"><img src="https://avatars2.githubusercontent.com/u/2453324?v=4?s=100" width="100px;" alt=""/><br /><sub><b>vbolshakov</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3Avbolshakov" title="Bug reports">🐛</a> <a href="#stubs-vbolshakov" title="MicroPython stubs">📚</a></td>
+    <td align="center"><a href="https://lemariva.com/"><img src="https://avatars2.githubusercontent.com/u/15173329?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Mauro Riva</b></sub></a><br /><a href="#blog-lemariva" title="Blogposts">📝</a> <a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3Alemariva" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="https://github.com/MathijsNL"><img src="https://avatars0.githubusercontent.com/u/1612886?v=4?s=100" width="100px;" alt=""/><br /><sub><b>MathijsNL</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3AMathijsNL" title="Bug reports">🐛</a></td>
+    <td align="center"><a href="http://comingsoon.tm/"><img src="https://avatars0.githubusercontent.com/u/13251689?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Callum Jacob Hays</b></sub></a><br /><a href="https://github.com/Josverl/micropython-stubber/issues?q=author%3ACallumJHays" title="Bug reports">🐛</a> <a href="#test-CallumJHays" title="Test">✔</a></td>
+    <td align="center"><a href="https://github.com/v923z"><img src="https://avatars0.githubusercontent.com/u/1310472?v=4?s=100" width="100px;" alt=""/><br /><sub><b>Zoltán Vörös</b></sub></a><br /><a href="#data-v923z" title="Data">🔣</a></td>
   </tr>
 </table>
+
 <!-- markdownlint-restore -->
 <!-- prettier-ignore-end -->
 
@@ -768,7 +776,7 @@ This project follows the [all-contributors](https://github.com/all-contributors/
 [micropy-cli]: https://github.com/BradenM/micropy-cli
 [using-the-stubs]: https://github.com/Josverl/micropython-stubs#using-the-stubs
 [demo]:         docs/img/demo.gif	"demo of writing code using the stubs"
-[stub processing order]: docs/img/stuborder.png	"recommended stub processing order"
+[stub processing order]: docs/img/stuborder_pylance.png	"recommended stub processing order"
 [naming-convention]: #naming-convention-and-stub-folder-structure
 [all-stubs]: https://github.com/Josverl/micropython-stubs/blob/master/firmwares.md
 [micropython]: https://github.com/micropython/micropython

@@ -10,8 +10,8 @@
             "windows": {
                 "command": "ubuntu run MICROPYPATH=./board ./tools/micropython board/createstubs.py"
             },
-            "linux":{
-                "command": "MICROPYPATH=./board ./tools/micropython board/createstubs.py",
+            "linux": {
+                "command": "MICROPYPATH=./board ./tools/micropython board/createstubs.py"
             },
             "problemMatcher": []
         },
@@ -22,23 +22,28 @@
             "windows": {
                 "command": "python process.py minify --diff"
             },
-            "linux":{
+            "linux": {
                 "command": "python3 process.py minify --diff"
             },
-            "problemMatcher": []
+            "problemMatcher": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         },
         {
             "label": "run minified",
             "detail": "run minified createstubs in linux port",
-            "dependsOn":["minify"],
+            "dependsOn": [
+                "minify"
+            ],
             "type": "shell",
             "windows": {
                 "command": "ubuntu run ./tools/micropython minified/createstubs.py"
             },
-            "linux":{
-                "command": "./tools/micropython minified/createstubs.py",
+            "linux": {
+                "command": "./tools/micropython minified/createstubs.py"
             },
-
             "problemMatcher": []
         },
         {
@@ -47,10 +52,7 @@
             "type": "shell",
             "command": " ${file} -O 3",
             "problemMatcher": [],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            }
+            "group": "build"
         },
         {
             "label": "pylint all",

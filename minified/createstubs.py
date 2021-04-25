@@ -8,7 +8,7 @@ import uos as os
 from utime import sleep_us
 from ujson import dumps
 ENOENT=2
-stbr_v='1.3.8'
+stbr_v='1.3.10'
 try:
  from machine import resetWDT 
 except ImportError:
@@ -19,7 +19,7 @@ class Stubber():
   self.init_mem=gc.mem_free()
   try:
    if os.uname().release=='1.13.0' and os.uname().version<'v1.13-103':
-    raise NotImplementedError("MicroPyton 1.13.0 cannot be stubbed")
+    raise NotImplementedError("MicroPython 1.13.0 cannot be stubbed")
   except AttributeError:
    pass
   self._report=[]
@@ -40,10 +40,10 @@ class Stubber():
    pass
   self.prblm=["upysh","webrepl_setup","http_client","http_client_ssl","http_server","http_server_ssl"]
   self.excl=["webrepl","_webrepl","port_diag","example_sub_led.py","example_pub_button.py"]
-  self.mods=['_thread','ak8963','apa102','apa106','array','binascii','btree','bluetooth','builtins','cmath','collections','crypto','curl','dht','display','ds18x20','errno','esp','esp32','flashbdev','framebuf','freesans20','functools','gc','gsm','hashlib','heapq','inisetup','io','json','logging','lwip','machine','math','microWebSocket','microWebSrv','microWebTemplate','micropython','mpu6500','mpu9250','neopixel','network','ntptime','onewire','os','port_diag','pycom','pye','random','re','requests','select','socket','ssd1306','ssh','ssl','struct','sys','time','tpcalib','ubinascii','ucollections','ucryptolib','uctypes','uerrno','uhashlib','uheapq','uio','ujson','umqtt/robust','umqtt/simple','uos','upip','upip_utarfile','urandom','ure','urequests','urllib/urequest','uselect','usocket','ussl','ustruct','utime','utimeq','uwebsocket','uzlib','websocket','websocket_helper','writer','ymodem','zlib','pycom','crypto','pyb','stm','pycopy']
+  self.mods=[line.rstrip('\r').rstrip('\n')for line in open('stublist.txt')]
  @staticmethod
  def _info():
-  i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
+  i={'name':sys.implementation.name,'release':'0.0.0','version':'0.0.0','build':'','sysname':'unknown','nodename':'unknown','machine':'unknown','family':sys.implementation.name,'platform':sys.platform,'port':sys.platform,'ver':''}
   try:
    i['release']=".".join([str(i)for i in sys.implementation.version])
    i['version']=i['release']
@@ -53,14 +53,17 @@ class Stubber():
   if sys.platform not in('unix','win32','esp8266'):
    try:
     u=os.uname()
+    i['sysname']=u.sysname
+    i['nodename']=u.nodename
     i['release']=u.release
+    i['machine']=u.machine
     if ' on ' in u.version:
      s=u.version.split('on ')[0]
      try:
       i['build']=s.split('-')[1]
      except IndexError:
       pass
-   except(IndexError,AttributeError):
+   except(IndexError,AttributeError,TypeError):
     pass
   try:
    from pycopy import const
@@ -71,7 +74,16 @@ class Stubber():
   if i['platform']=='esp32_LoBo':
    i['family']='loboris'
    i['port']='esp32'
-  i['ver']='v'+i['release']
+  elif i['sysname']=='ev3':
+   i['family']='ev3-pybricks'
+   i['release']="1.0.0"
+   try:
+    from pybricks.hubs import EV3Brick
+    i['release']="2.0.0"
+   except ImportError:
+    pass
+  if i['release']:
+   i['ver']='v'+i['release']
   if i['family']!='loboris':
    if i['release']>='1.10.0' and i['release'].endswith('.0'):
     i['ver']=i['release'][:-2]
@@ -95,7 +107,6 @@ class Stubber():
  def add_modules(self,modules:list):
   self.mods=sorted(set(self.mods)|set(modules))
  def create_all_stubs(self):
-  self.mods=[m for m in self.mods if '/' in m]+[m for m in self.mods if '/' not in m]
   gc.collect()
   for mod_nm in self.mods:
    if mod_nm.startswith("_")and mod_nm!='_thread':
@@ -104,25 +115,25 @@ class Stubber():
     continue
    if mod_nm in self.excl:
     continue
-   file_name="{}/{}.py".format(self.path,mod_nm.replace(".","/"))
+   f_nm="{}/{}.py".format(self.path,mod_nm.replace(".","/"))
    gc.collect()
    m1=gc.mem_free()
-   print("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm,file_name,m1))
+   print("Stub module: {:<20} to file: {:<55} mem:{:>5}".format(mod_nm,f_nm,m1))
    try:
-    self.create_module_stub(mod_nm,file_name)
+    self.create_module_stub(mod_nm,f_nm)
    except OSError:
     pass
    gc.collect()
- def create_module_stub(self,mod_nm:str,file_name:str=None):
+ def create_module_stub(self,mod_nm:str,f_nm:str=None):
   if mod_nm.startswith("_")and mod_nm!='_thread':
    return
   if mod_nm in self.prblm:
    return
   if '/' in mod_nm:
-   self.ensure_folder(file_name)
+   self.ensure_folder(f_nm)
    mod_nm=mod_nm.replace('/','.')
-  if file_name is None:
-   file_name=mod_nm.replace('.','_')+".py"
+  if f_nm is None:
+   f_nm=mod_nm.replace('.','_')+".py"
   failed=False
   new_mod=None
   try:
@@ -132,30 +143,30 @@ class Stubber():
    if not '.' in mod_nm:
     return
   if failed and '.' in mod_nm:
-   levels=mod_nm.split('.')
-   for n in range(1,len(levels)):
-    par_nm=".".join(levels[0:n])
+   lvls=mod_nm.split('.')
+   for n in range(1,len(lvls)):
+    par_nm=".".join(lvls[0:n])
     try:
-     parent=__import__(par_nm)
-     del parent
+     par=__import__(par_nm)
+     del par
     except(ImportError,KeyError):
      pass
    try:
     new_mod=__import__(mod_nm,None,None,('*'))
    except ImportError:
     return
-  with open(file_name,"w")as fp:
+  with open(f_nm,"w")as fp:
    s="\"\"\"\nModule: '{0}' on {1}\n\"\"\"\n# MCU: {2}\n# Stubber: {3}\n".format(mod_nm,self._fwid,self.info,stbr_v)
    fp.write(s)
    self.write_object_stub(fp,new_mod,mod_nm,"")
-   self._report.append({"module":mod_nm,"file":file_name})
-  if not mod_nm in["os","sys","logging","gc","createstubs"]:
+   self._report.append({"module":mod_nm,"file":f_nm})
+  if not mod_nm in["os","sys","logging","gc"]:
    try:
     del new_mod
    except(OSError,KeyError):
     pass
    for m in sys.modules:
-    if not m in["os","sys","logging","gc","createstubs"]:
+    if not m in["os","sys","logging","gc"]:
      try:
       del sys.modules[mod_nm]
      except KeyError:
@@ -280,10 +291,17 @@ def get_param()->str:
  elif len(sys.argv)>=2:
   show_help()
  return path
+def uPy()->bool:
+ try:
+  a=eval("1and 0")
+  b=bytes("abc",encoding="utf8")
+  return False
+ except(NotImplementedError,SyntaxError):
+  return True
 def _log_mem(start_free):
  gc.collect()
  free=gc.mem_free()
- used= start_free-free
+ used=start_free-free
  print('start free:{:,}, end: {:,}, used {:,}'.format(start_free,free,used))
  with open('./memory.csv','a')as file:
   file.write('{},{},{},{}\n'.format(start_free,free,used,sys.platform))
@@ -297,4 +315,5 @@ def main():
  stubber.create_all_stubs()
  stubber.report()
  _log_mem(stubber.init_mem)
-main()
+if __name__=="__main__" or uPy():
+ main()
